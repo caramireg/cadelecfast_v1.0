@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cadelec fast - Diseño Eléctrico</title>
     <script>
         if (sessionStorage.getItem('cadelec_auth') !== 'cadelec2026') {
             window.location.href = 'index.html';
         }
     </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadelec fast - Diseño Eléctrico</title>
     <style>
         :root {
             --primary: #2c3e50;
@@ -31,22 +31,11 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
             background-color: var(--light);
             color: var(--dark);
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .app-container {
-            display: flex;
-            flex: 1;
-            height: 100vh;
-            overflow: hidden;
         }
 
         /* Sidebar / Controles */
@@ -88,9 +77,8 @@
         .panel {
             padding: 15px;
             border-bottom: 1px solid #eee;
-            flex: 1 1 auto;
+            flex: 1;
             overflow-y: auto;
-            max-height: calc(100vh - 350px); /* Limitamos el alto del cuadro de cargas para que los botones de abajo siempre quepan */
         }
 
         .panel h2 {
@@ -221,48 +209,7 @@
                 linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
             background-size: 20px 20px;
             overflow: hidden;
-            touch-action: none;
             cursor: crosshair;
-        }
-
-        /* Responsive Tablet Design - Ajuste nativo sin zoom */
-        @media (max-width: 992px) {
-            .sidebar {
-                width: 210px; /* Reducimos paneles laterales */
-            }
-            .header {
-                padding: 10px;
-            }
-            .header h1 {
-                font-size: 0.9rem;
-            }
-            .header p {
-                font-size: 0.7rem;
-            }
-            .panel {
-                padding: 10px;
-            }
-            .panel h2 {
-                font-size: 0.85rem;
-                margin-bottom: 5px;
-            }
-            .tool-btn {
-                padding: 8px 6px;
-                font-size: 0.8rem;
-                margin-bottom: 5px;
-            }
-            .tool-icon {
-                font-size: 1rem;
-                margin-right: 5px;
-            }
-            .action-btns {
-                padding: 10px;
-                gap: 5px;
-            }
-            .btn {
-                font-size: 0.75rem;
-                padding: 6px 4px;
-            }
         }
 
         /* Capa de plano arquitectónico */
@@ -1134,7 +1081,7 @@ const SYMBOLS_B64 = {
                 el.innerHTML = `<img src="${node.img}" style="width: 26px; height: 26px; object-fit: contain; pointer-events: none;" alt="${node.label}">
                                 <div class="label">${node.label} ${extraInfo}</div>`;
                 
-                el.onpointerdown = (e) => { e.preventDefault(); e.stopPropagation(); handleNodeMouseDown(e, node.id); };
+                el.onmousedown = (e) => { e.stopPropagation(); handleNodeMouseDown(e, node.id); };
                 el.onclick = (e) => { e.stopPropagation(); handleNodeClick(e, node.id); };
                 
                 workspace.appendChild(el);
@@ -1143,31 +1090,13 @@ const SYMBOLS_B64 = {
 
         // --- INTERACCIONES ---
 
-        function getEventPos(e) {
+        workspace.onmousemove = (e) => {
             const rect = workspace.getBoundingClientRect();
-            const scaleX = rect.width / workspace.offsetWidth || 1;
-            const scaleY = rect.height / workspace.offsetHeight || 1;
-            let clientX = e.clientX;
-            let clientY = e.clientY;
-            return { 
-                x: (clientX - rect.left) / scaleX, 
-                y: (clientY - rect.top) / scaleY, 
-                rawX: clientX, 
-                rawY: clientY 
-            };
-        }
-
-        const handleWorkspaceMove = (e) => {
-            const pos = getEventPos(e);
-            mousePos = {x: pos.x, y: pos.y};
-            const clientX = pos.rawX;
-            const clientY = pos.rawY;
-            const rect = workspace.getBoundingClientRect();
+            mousePos = {x: e.clientX - rect.left, y: e.clientY - rect.top};
             
             let newHoveredNode = null;
             for (const node of nodes) {
-                // Aumentamos el hitbox a 50px para los dedos
-                if (Math.hypot(node.x - mousePos.x, node.y - mousePos.y) < 50) {
+                if (Math.hypot(node.x - mousePos.x, node.y - mousePos.y) < 25) {
                     newHoveredNode = node;
                     break;
                 }
@@ -1180,14 +1109,14 @@ const SYMBOLS_B64 = {
             }
             
             if (mode === 'calibrate') {
-                tooltip.style.left = (clientX + 15) + 'px';
-                tooltip.style.top = (clientY + 15) + 'px';
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY + 15) + 'px';
                 if (calibPoints.length === 1) renderWorkspace(); // Para animar la línea
             }
 
             if (mode === 'measure') {
-                tooltip.style.left = (clientX + 15) + 'px';
-                tooltip.style.top = (clientY + 15) + 'px';
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY + 15) + 'px';
                 if (measurePoints.length === 1 && pxPerMeter) {
                     let dx = mousePos.x - measurePoints[0].x;
                     let dy = mousePos.y - measurePoints[0].y;
@@ -1214,9 +1143,8 @@ const SYMBOLS_B64 = {
                 renderWorkspace();
             }
         };
-        workspace.onpointermove = handleWorkspaceMove;
 
-        workspace.onpointerdown = (e) => {
+        workspace.onclick = (e) => {
             if (e.target === workspace || e.target === wireLayer || e.target === canvasBg) {
                 if (mode === 'select') {
                     selectedNodeId = null;
@@ -1273,50 +1201,13 @@ const SYMBOLS_B64 = {
         };
 
         function handleNodeMouseDown(e, id) {
-            if (mode === 'select') {
-                draggedNode = nodes.find(n => n.id === id);
-                selectNode(id);
-                workspace.setPointerCapture(e.pointerId);
-            } else if (mode === 'wire') {
-                if (!wireStartNodeId) {
-                    wireStartNodeId = id;
-                    tempWirePoints = [];
-                    renderWorkspace();
-                }
-            }
+            if (mode !== 'select') return;
+            draggedNode = nodes.find(n => n.id === id);
+            selectNode(id);
         }
 
-        const handlePointerUp = (e) => {
-            if (draggedNode) {
-                draggedNode = null;
-                workspace.releasePointerCapture(e.pointerId);
-            }
-            if (mode === 'wire' && wireStartNodeId) {
-                let closestNode = null;
-                for (const node of nodes) {
-                    if (node.id !== wireStartNodeId && Math.hypot(node.x - mousePos.x, node.y - mousePos.y) < 50) {
-                        closestNode = node; break;
-                    }
-                }
-                if (closestNode) {
-                    const exists = wires.some(w => 
-                        (w.from === wireStartNodeId && w.to === closestNode.id) || 
-                        (w.to === wireStartNodeId && w.from === closestNode.id)
-                    );
-                    if (!exists) {
-                        wires.push({ from: wireStartNodeId, to: closestNode.id, points: [...tempWirePoints] });
-                        wireStartNodeId = null;
-                        tempWirePoints = [];
-                        analyzeSystem();
-                    }
-                }
-            }
-            renderWorkspace();
-        };
-
-        workspace.onpointerup = handlePointerUp;
-        workspace.onpointercancel = handlePointerUp;
-        workspace.onpointerleave = () => { draggedNode = null; tooltip.style.display = 'none'; hoveredNode = null; renderWorkspace(); };
+        workspace.onmouseup = () => { draggedNode = null; };
+        workspace.onmouseleave = () => { draggedNode = null; tooltip.style.display = 'none'; hoveredNode = null; renderWorkspace(); };
 
         function handleNodeClick(e, id) {
             if (mode === 'erase') {
