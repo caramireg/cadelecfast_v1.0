@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=1440, user-scalable=no">
     <title>Cadelec fast - Diseño Eléctrico</title>
     <script>
         if (sessionStorage.getItem('cadelec_auth') !== 'cadelec2026') {
@@ -213,15 +213,7 @@
             cursor: crosshair;
         }
 
-        /* Responsive Tablet Design - Ajuste a 60% de escala visual */
-        @media (max-width: 992px) {
-            .app-container {
-                zoom: 0.6; /* Escala global al 60% */
-            }
-            .sidebar {
-                width: 280px; /* Ancho ajustado para la escala */
-            }
-        }
+        /* Eliminamos el CSS Zoom manual, usaremos el Viewport Meta Tag para auto-escalado nativo */
 
         /* Capa de plano arquitectónico */
         #canvas-bg {
