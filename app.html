@@ -7,8 +7,10 @@
         }
     </script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadelec fast - Diseño Eléctrico</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CADELEC FAST - Simulador Eléctrico para Visitas en Terreno</title>
+    <!-- Incluir html2canvas para la captura de pantalla de presupuestos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --primary: #2c3e50;
@@ -437,9 +439,10 @@
             
             <h2 style="margin-top: 15px;">Fondo y Escala</h2>
             <button class="tool-btn" onclick="document.getElementById('file-input').click()">
-                <span class="tool-icon">📁</span> Cargar Plano Base
+                <span class="tool-icon">🖼️</span> Cargar Plano Base
             </button>
-            <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadPlan(this)">
+            <p style="font-size: 0.75rem; color: #7f8c8d; margin-top: 5px; margin-bottom: 15px; text-align: center; line-height: 1.2;">Formatos admitidos: JPG, PNG, WEBP.<br><small>(Si tomas la foto con iPhone/HEIC, asegúrate de que se convierta a JPG)</small></p>
+            <input type="file" id="file-input" style="display:none" accept="image/jpeg, image/png, image/webp" onchange="loadPlan(this)">
             
             <button class="tool-btn" id="btn-calibrate" onclick="setMode('calibrate')">
                 <span class="tool-icon">📏</span> Calibrar Escala (Metros)
@@ -565,7 +568,7 @@
             <button class="btn" style="background-color: #8e44ad;" onclick="exportImage()">📷 Exp. Plano</button>
             <button class="btn" style="background-color: #e67e22;" onclick="exportCSV()">📊 Exp. Cuadro</button>
             <button class="btn" style="background-color: #2980b9;" onclick="showBalanceModal()">⚖️ Balance</button>
-            <button class="btn" style="background-color: #f1c40f; color:#333;" onclick="showMaterialsModal()">🛒 Materiales</button>
+            <button class="btn" style="background-color: #f1c40f; color:#333;" onclick="showMaterialsModal()">💰 Presupuesto</button>
             <button class="btn" style="background-color: #16a085; grid-column: span 2;" onclick="showHelpModal()">❓ Guía de Uso</button>
         </div>
     </div>
@@ -706,8 +709,9 @@
                 Los precios son referencias promedio estimadas.
             </p>
             <div id="materials-results"></div>
-            <div style="text-align: right; margin-top: 15px;">
-                <button class="btn btn-save" onclick="exportMaterialsCSV()">📥 Exportar a Excel</button>
+            <div style="margin-top: 20px; text-align: center; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <button class="btn" style="background-color: #27ae60; color: white;" onclick="exportMaterialsCSV()">📥 Exportar a Excel (.csv)</button>
+                <button class="btn" style="background-color: #8e44ad; color: white;" onclick="exportMaterialsImage()">📷 Exportar a Imagen (WhatsApp)</button>
             </div>
         </div>
     </div>
@@ -745,6 +749,27 @@ const SYMBOLS_B64 = {
 
         const VOLTAGE = 120;
         
+        let projectPrices = {
+            "Tablero de Distribución": 250000,
+            "Tomacorriente (180W)": 15000,
+            "Tomacorriente Especial (240V)": 45000,
+            "Luminaria (60W)": 35000,
+            "Interruptor Simple": 12000,
+            "Conmutador (3 Vías)": 18000,
+            "Caja 5x10 (Empotrar - Tomas/Int)": 2000,
+            "Caja Octogonal (Empotrar - Luminarias)": 2500,
+            "Cable AWG 14 (m) - F/N/T": 1500,
+            "Cable AWG 12 (m) - F/N/T": 2200,
+            "Cable AWG 10 (m) - F/N/T": 3500,
+            "Cable AWG 8 (m) - F/N/T": 5500,
+            "Tubería PVC 1/2 (m)": 2000,
+            "Tubería PVC 3/4 (m)": 2800,
+            "Curvas PVC": 800,
+            "Adaptadores Terminales PVC": 600
+        };
+        let customCosts = [];
+        let taxConfig = { applyTax: false, rate: 19 };
+
         // Referencias DOM
         const workspace = document.getElementById('workspace');
         const wireLayer = document.getElementById('wire-layer');
@@ -2124,7 +2149,7 @@ const SYMBOLS_B64 = {
             }
             
             try {
-                const data = { nodes, wires, idCounter, bgImageBase64, pxPerMeter };
+                const data = { nodes, wires, idCounter, bgImageBase64, pxPerMeter, projectPrices, customCosts, taxConfig };
                 localStorage.setItem('stem-electrical-pro', JSON.stringify(data));
                 
                 const btn = document.querySelector('.btn-save');
@@ -2150,7 +2175,7 @@ const SYMBOLS_B64 = {
                 alert("No hay elementos para exportar.");
                 return;
             }
-            const data = { nodes, wires, idCounter, bgImageBase64, pxPerMeter };
+            const data = { nodes, wires, idCounter, bgImageBase64, pxPerMeter, projectPrices, customCosts, taxConfig };
             const jsonStr = JSON.stringify(data);
             const blob = new Blob([jsonStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
@@ -2186,6 +2211,10 @@ const SYMBOLS_B64 = {
                 idCounter = data.idCounter || 1;
                 bgImageBase64 = data.bgImageBase64 || null;
                 pxPerMeter = data.pxPerMeter || null;
+                
+                if (data.projectPrices) projectPrices = data.projectPrices;
+                if (data.customCosts) customCosts = data.customCosts;
+                if (data.taxConfig) taxConfig = data.taxConfig;
                 
                 if (bgImageBase64) {
                     canvasBg.style.backgroundImage = `url(${bgImageBase64})`;
@@ -2333,33 +2362,12 @@ const SYMBOLS_B64 = {
         }
 
         // --- SISTEMA DE MATERIALES Y COSTOS (BOM) ---
-        function showMaterialsModal() {
-            const modal = document.getElementById('materials-modal');
-            const resultsContainer = document.getElementById('materials-results');
-            
-            // Precios Unitarios de Referencia (COP Estimado)
-            const PRICES = {
-                "Tablero de Distribución": 250000,
-                "Tomacorriente (180W)": 15000,
-                "Tomacorriente Especial (240V)": 45000,
-                "Luminaria (60W)": 35000,
-                "Interruptor Simple": 12000,
-                "Conmutador (3 Vías)": 18000,
-                "Caja 5x10 (Empotrar - Tomas/Int)": 2000,
-                "Caja Octogonal (Empotrar - Luminarias)": 2500,
-                "Cable AWG 14 (m) - F/N/T": 1500, // Precio promedio por metro de conductor AWG 14/12
-                "Cable AWG 12 (m) - F/N/T": 2200,
-                "Cable AWG 10 (m) - F/N/T": 3500,
-                "Cable AWG 8 (m) - F/N/T": 5500,
-                "Tubería PVC 1/2 (m)": 2000, // Precio por metro de tubería
-                "Tubería PVC 3/4 (m)": 2800,
-                "Curvas PVC": 800,
-                "Adaptadores Terminales PVC": 600
-            };
-
+        let currentBomCache = null; // Guardar cache de BOM
+        
+        function generateBOM() {
             let bom = {};
             function addBOM(item, qty, type = "unitario") {
-                if (!bom[item]) bom[item] = { qty: 0, price: PRICES[item] || 0, type: type };
+                if (!bom[item]) bom[item] = { qty: 0, price: projectPrices[item] || 0, type: type };
                 bom[item].qty += qty;
             }
 
@@ -2446,55 +2454,149 @@ const SYMBOLS_B64 = {
             if(totalWireLength['10'] > 0) addBOM("Cable AWG 10 (m) - F/N/T", totalWireLength['10'], "metro");
             if(totalWireLength['8'] > 0) addBOM("Cable AWG 8 (m) - F/N/T", totalWireLength['8'], "metro");
 
-            // 3. Renderizar Tabla
+            return bom;
+        }
+
+        function showMaterialsModal() {
+            const modal = document.getElementById('materials-modal');
+            currentBomCache = generateBOM(); // Recalculate components based on canvas
+            renderMaterialsTable();
+            modal.style.display = 'flex';
+        }
+
+        function renderMaterialsTable() {
+            const resultsContainer = document.getElementById('materials-results');
+            if (!currentBomCache) return;
+            
+            let bom = currentBomCache;
+            
             let html = `
-                <table class="balance-table">
-                    <thead>
+                <div style="max-height: 55vh; overflow-y: auto; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                <table class="balance-table" style="width: 100%; margin-top: 0; border: none;">
+                    <thead style="position: sticky; top: 0; z-index: 10;">
                         <tr>
                             <th>Material / Ítem</th>
-                            <th>Cantidad Estimada</th>
-                            <th>Valor Unitario (Ref.)</th>
-                            <th>Subtotal (Ref.)</th>
+                            <th>Cant.</th>
+                            <th>Valor Unit. (COP)</th>
+                            <th>Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
 
-            let grandTotal = 0;
+            let subtotalDirecto = 0;
             
             Object.keys(bom).forEach(item => {
                 if (bom[item].qty > 0) {
-                    let qty = bom[item].type === "metro" ? bom[item].qty.toFixed(2) + " m" : Math.ceil(bom[item].qty) + " und";
-                    let subtotal = bom[item].qty * bom[item].price;
-                    grandTotal += subtotal;
+                    let qtyStr = bom[item].type === "metro" ? bom[item].qty.toFixed(2) + " m" : Math.ceil(bom[item].qty) + " und";
+                    let qtyNum = bom[item].type === "metro" ? bom[item].qty : Math.ceil(bom[item].qty);
+                    
+                    // Actualizar el precio desde el global
+                    bom[item].price = projectPrices[item] || 0;
+                    
+                    let sub = qtyNum * bom[item].price;
+                    subtotalDirecto += sub;
                     
                     html += `
                         <tr>
-                            <td style="text-align: left;">${item}</td>
-                            <td>${qty}</td>
-                            <td style="text-align: right;">$${bom[item].price.toLocaleString('es-CO')}</td>
-                            <td style="text-align: right;">$${subtotal.toLocaleString('es-CO')}</td>
+                            <td style="text-align: left; font-size: 0.9rem;">${item}</td>
+                            <td style="font-size: 0.9rem;">${qtyStr}</td>
+                            <td><input type="number" value="${bom[item].price}" onchange="updateMaterialPrice('${item}', this.value)" style="width: 90px; padding: 4px; text-align: right; border: 1px solid #ccc; border-radius: 3px;"></td>
+                            <td style="text-align: right; font-weight: bold; color: #555;">$${sub.toLocaleString('es-CO')}</td>
                         </tr>
                     `;
                 }
             });
 
+            // Adicionales
+            let subtotalAdicionales = 0;
+            customCosts.forEach((cost, index) => {
+                let sub = cost.qty * cost.price;
+                subtotalAdicionales += sub;
+                html += `
+                        <tr style="background-color: #fcf3cf;">
+                            <td style="text-align: left;">
+                                <input type="text" value="${cost.desc}" onchange="updateCustomCost(${index}, 'desc', this.value)" placeholder="Ej: Mano de obra, Transporte..." style="width: 95%; padding: 4px; border: 1px solid #ccc; border-radius: 3px;">
+                            </td>
+                            <td>
+                                <input type="number" value="${cost.qty}" onchange="updateCustomCost(${index}, 'qty', this.value)" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 3px;" step="any">
+                            </td>
+                            <td>
+                                <input type="number" value="${cost.price}" onchange="updateCustomCost(${index}, 'price', this.value)" style="width: 90px; padding: 4px; text-align: right; border: 1px solid #ccc; border-radius: 3px;">
+                            </td>
+                            <td style="text-align: right; font-weight: bold; color: #d35400;">
+                                $${sub.toLocaleString('es-CO')}
+                                <button onclick="removeCustomCost(${index})" style="background: transparent; color: var(--danger); border: none; font-weight: bold; cursor: pointer; padding: 2px 5px; margin-left: 5px; font-size: 1.1rem;" title="Eliminar">×</button>
+                            </td>
+                        </tr>
+                `;
+            });
+
+            let subtotalGeneral = subtotalDirecto + subtotalAdicionales;
+            let taxAmount = taxConfig.applyTax ? subtotalGeneral * (taxConfig.rate / 100) : 0;
+            let grandTotal = subtotalGeneral + taxAmount;
+
             html += `
                     </tbody>
-                    <tfoot>
-                        <tr>
-                            <th colspan="3" style="text-align: right; background-color: var(--dark); color: white;">COSTO DIRECTO ESTIMADO:</th>
-                            <th style="text-align: right; background-color: var(--dark); color: var(--accent); font-size: 1.2rem;">$${grandTotal.toLocaleString('es-CO')}</th>
-                        </tr>
-                    </tfoot>
                 </table>
-                <p style="font-size: 0.8rem; margin-top: 10px; color: #7f8c8d;">
-                    *Nota: Los valores son netamente ilustrativos. Los metros de cable se calculan multiplicando la longitud de la tubería por el número de conductores que pasan por ese tramo. Se asume un margen de desperdicio y caídas verticales de 3m.
-                </p>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <button class="btn" style="background-color: #f39c12; color: white; width: 100%; margin-bottom: 5px;" onclick="addCustomCost()">+ Añadir Concepto (Mano de obra, equipos...)</button>
+                        <p style="font-size: 0.75rem; color: #7f8c8d; line-height: 1.2; margin: 0;">
+                            *Los metros de cable incluyen subidas/bajadas. Puedes editar cualquier precio y se guardará con este proyecto.
+                        </p>
+                    </div>
+                    <div style="background-color: #ecf0f1; padding: 15px; border-radius: 8px; min-width: 280px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem;">
+                            <span>Subtotal Neto:</span>
+                            <strong>$${subtotalGeneral.toLocaleString('es-CO')}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center; font-size: 0.95rem;">
+                            <span>
+                                <input type="checkbox" id="taxCheckbox" ${taxConfig.applyTax ? 'checked' : ''} onchange="updateTaxConfig('applyTax', this.checked)"> IVA 
+                                <input type="number" value="${taxConfig.rate}" onchange="updateTaxConfig('rate', this.value)" style="width: 50px; padding: 2px; border: 1px solid #ccc;" ${!taxConfig.applyTax ? 'disabled' : ''}>%
+                            </span>
+                            <strong>$${taxAmount.toLocaleString('es-CO')}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-top: 2px solid var(--dark); padding-top: 10px; font-size: 1.3rem; color: var(--dark);">
+                            <span><strong>TOTAL:</strong></span>
+                            <strong style="color: var(--primary);">$${grandTotal.toLocaleString('es-CO')}</strong>
+                        </div>
+                    </div>
+                </div>
             `;
-
             resultsContainer.innerHTML = html;
-            modal.style.display = 'flex';
+        }
+
+        function updateMaterialPrice(item, newPrice) {
+            projectPrices[item] = parseFloat(newPrice) || 0;
+            renderMaterialsTable();
+        }
+
+        function addCustomCost() {
+            customCosts.push({ desc: "", qty: 1, price: 0 });
+            renderMaterialsTable();
+            // Scroll to bottom of table
+            const tableDiv = document.querySelector('#materials-results > div');
+            if(tableDiv) setTimeout(() => tableDiv.scrollTop = tableDiv.scrollHeight, 50);
+        }
+
+        function removeCustomCost(index) {
+            customCosts.splice(index, 1);
+            renderMaterialsTable();
+        }
+
+        function updateCustomCost(index, field, value) {
+            if (field === 'desc') customCosts[index].desc = value;
+            else customCosts[index][field] = parseFloat(value) || 0;
+            renderMaterialsTable();
+        }
+
+        function updateTaxConfig(field, value) {
+            taxConfig[field] = value;
+            renderMaterialsTable();
         }
 
         function closeMaterialsModal() {
@@ -2502,28 +2604,115 @@ const SYMBOLS_B64 = {
         }
 
         function exportMaterialsCSV() {
-            const resultsContainer = document.getElementById('materials-results');
-            const rows = resultsContainer.querySelectorAll('tr');
+            if (!currentBomCache) return;
+            // Usamos punto y coma para separar columnas en Excel en español
             let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Material / Item;Cant.;Valor Unit. (COP);Subtotal\r\n";
             
-            rows.forEach((row, i) => {
-                let rowData = [];
-                const cols = row.querySelectorAll('th, td');
-                cols.forEach(c => {
-                    let text = c.innerText.replace(/\$/g, '').replace(/\./g, '').trim(); 
-                    rowData.push('"' + text + '"');
-                });
-                csvContent += rowData.join(",") + "\r\n";
+            // Función auxiliar para formatear números al estilo Excel español (coma decimal, sin separador de miles)
+            const fmt = (num) => {
+                if(num === undefined || num === null) return "0";
+                return num.toFixed(2).replace('.', ',');
+            };
+
+            let subtotalDirecto = 0;
+            Object.keys(currentBomCache).forEach(item => {
+                let qtyNum = currentBomCache[item].type === "metro" ? currentBomCache[item].qty : Math.ceil(currentBomCache[item].qty);
+                if (qtyNum > 0) {
+                    let price = currentBomCache[item].price;
+                    let sub = qtyNum * price;
+                    subtotalDirecto += sub;
+                    csvContent += `"${item}";"${fmt(qtyNum)}";"${fmt(price)}";"${fmt(sub)}"\r\n`;
+                }
             });
+
+            let subtotalAdicionales = 0;
+            customCosts.forEach(cost => {
+                let sub = cost.qty * cost.price;
+                subtotalAdicionales += sub;
+                let desc = cost.desc ? cost.desc.replace(/"/g, '""') : 'Concepto Extra';
+                csvContent += `"${desc}";"${fmt(cost.qty)}";"${fmt(cost.price)}";"${fmt(sub)}"\r\n`;
+            });
+
+            let subtotalGeneral = subtotalDirecto + subtotalAdicionales;
+            let taxAmount = taxConfig.applyTax ? subtotalGeneral * (taxConfig.rate / 100) : 0;
+            let grandTotal = subtotalGeneral + taxAmount;
+
+            csvContent += `\r\n"Subtotal Neto";;;"${fmt(subtotalGeneral)}"\r\n`;
+            if(taxConfig.applyTax) {
+                csvContent += `"IVA (${taxConfig.rate}%)";;;"${fmt(taxAmount)}"\r\n`;
+            }
+            csvContent += `"TOTAL";;;"${fmt(grandTotal)}"\r\n`;
 
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "lista_materiales_simulador.csv");
+            link.setAttribute("download", "presupuesto_simulador.csv");
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
+
+        function exportMaterialsImage() {
+            const resultsContainer = document.getElementById('materials-results');
+            
+            // Reemplazar visualmente los inputs por span temporales para que se rendericen bien en la imagen
+            const inputs = resultsContainer.querySelectorAll('input');
+            const originalParents = [];
+            
+            inputs.forEach(input => {
+                const span = document.createElement('span');
+                if(input.type === 'checkbox') {
+                    span.innerText = input.checked ? "[X] IVA" : "[ ] IVA";
+                } else {
+                    // Formatear si es número de precio o cantidad
+                    if(input.type === 'number' && input.value !== "") {
+                        if(input.style.width === '50px') {
+                            span.innerText = parseFloat(input.value).toFixed(0); // Cantidades o %
+                        } else {
+                            span.innerText = "$" + parseFloat(input.value).toLocaleString('es-CO'); // Precios
+                        }
+                    } else {
+                        span.innerText = input.value || "Concepto";
+                    }
+                }
+                span.style.padding = "4px";
+                span.style.display = "inline-block";
+                span.style.fontWeight = "bold";
+                span.style.color = "#2c3e50";
+                
+                originalParents.push({ parent: input.parentNode, input: input, span: span });
+                input.parentNode.replaceChild(span, input);
+            });
+
+            // Ocultar botones de borrar y añadir temporalmente
+            const allBtns = resultsContainer.querySelectorAll('button');
+            const hiddenBtns = [];
+            allBtns.forEach(btn => {
+                if(btn.style.display !== 'none') {
+                    hiddenBtns.push(btn);
+                    btn.style.display = 'none';
+                }
+            });
+
+            // Capturar
+            html2canvas(resultsContainer, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+                // Restaurar inputs
+                originalParents.forEach(item => {
+                    item.parent.replaceChild(item.input, item.span);
+                });
+                // Restaurar botones
+                hiddenBtns.forEach(btn => {
+                    btn.style.display = '';
+                });
+                
+                const link = document.createElement('a');
+                link.download = 'cotizacion_simulador.png';
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            });
+        }
+
 
         // --- SOPORTE DE TECLADO ---
         document.addEventListener('keydown', (e) => {
