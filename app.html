@@ -31,11 +31,22 @@
         }
 
         body {
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
             background-color: var(--light);
             color: var(--dark);
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-container {
+            display: flex;
+            flex: 1;
+            height: 100dvh;
+            overflow: hidden;
         }
 
         /* Sidebar / Controles */
@@ -45,6 +56,7 @@
             display: flex;
             flex-direction: column;
             z-index: 10;
+            padding-bottom: 20px; /* Evita que los botones queden tapados por la barra de Android */
         }
 
         .sidebar-left {
@@ -1084,8 +1096,7 @@ const SYMBOLS_B64 = {
                 el.innerHTML = `<img src="${node.img}" style="width: 26px; height: 26px; object-fit: contain; pointer-events: none;" alt="${node.label}">
                                 <div class="label">${node.label} ${extraInfo}</div>`;
                 
-                el.onmousedown = (e) => { e.stopPropagation(); handleNodeMouseDown(e, node.id); };
-                el.ontouchstart = (e) => { e.preventDefault(); e.stopPropagation(); handleNodeMouseDown(e, node.id); };
+                el.onpointerdown = (e) => { e.preventDefault(); e.stopPropagation(); handleNodeMouseDown(e, node.id); };
                 el.onclick = (e) => { e.stopPropagation(); handleNodeClick(e, node.id); };
                 
                 workspace.appendChild(el);
@@ -1096,17 +1107,8 @@ const SYMBOLS_B64 = {
 
         function getEventPos(e) {
             const rect = workspace.getBoundingClientRect();
-            let clientX, clientY;
-            if (e.touches && e.touches.length > 0) {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else if (e.changedTouches && e.changedTouches.length > 0) {
-                clientX = e.changedTouches[0].clientX;
-                clientY = e.changedTouches[0].clientY;
-            } else {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            }
+            let clientX = e.clientX;
+            let clientY = e.clientY;
             return { x: clientX - rect.left, y: clientY - rect.top, rawX: clientX, rawY: clientY };
         }
 
@@ -1119,7 +1121,8 @@ const SYMBOLS_B64 = {
             
             let newHoveredNode = null;
             for (const node of nodes) {
-                if (Math.hypot(node.x - mousePos.x, node.y - mousePos.y) < 25) {
+                // Aumentamos el hitbox a 50px para los dedos
+                if (Math.hypot(node.x - mousePos.x, node.y - mousePos.y) < 50) {
                     newHoveredNode = node;
                     break;
                 }
@@ -1166,10 +1169,9 @@ const SYMBOLS_B64 = {
                 renderWorkspace();
             }
         };
-        workspace.onmousemove = handleWorkspaceMove;
-        workspace.addEventListener('touchmove', handleWorkspaceMove, {passive: false});
+        workspace.onpointermove = handleWorkspaceMove;
 
-        workspace.onclick = (e) => {
+        workspace.onpointerdown = (e) => {
             if (e.target === workspace || e.target === wireLayer || e.target === canvasBg) {
                 if (mode === 'select') {
                     selectedNodeId = null;
@@ -1226,15 +1228,50 @@ const SYMBOLS_B64 = {
         };
 
         function handleNodeMouseDown(e, id) {
-            if (mode !== 'select') return;
-            draggedNode = nodes.find(n => n.id === id);
-            selectNode(id);
+            if (mode === 'select') {
+                draggedNode = nodes.find(n => n.id === id);
+                selectNode(id);
+                workspace.setPointerCapture(e.pointerId);
+            } else if (mode === 'wire') {
+                if (!wireStartNodeId) {
+                    wireStartNodeId = id;
+                    tempWirePoints = [];
+                    renderWorkspace();
+                }
+            }
         }
 
-        workspace.onmouseup = () => { draggedNode = null; };
-        workspace.addEventListener('touchend', () => { draggedNode = null; });
-        workspace.addEventListener('touchcancel', () => { draggedNode = null; });
-        workspace.onmouseleave = () => { draggedNode = null; tooltip.style.display = 'none'; hoveredNode = null; renderWorkspace(); };
+        const handlePointerUp = (e) => {
+            if (draggedNode) {
+                draggedNode = null;
+                workspace.releasePointerCapture(e.pointerId);
+            }
+            if (mode === 'wire' && wireStartNodeId) {
+                let closestNode = null;
+                for (const node of nodes) {
+                    if (node.id !== wireStartNodeId && Math.hypot(node.x - mousePos.x, node.y - mousePos.y) < 50) {
+                        closestNode = node; break;
+                    }
+                }
+                if (closestNode) {
+                    const exists = wires.some(w => 
+                        (w.from === wireStartNodeId && w.to === closestNode.id) || 
+                        (w.to === wireStartNodeId && w.from === closestNode.id)
+                    );
+                    if (!exists) {
+                        wires.push({ from: wireStartNodeId, to: closestNode.id, points: [...tempWirePoints] });
+                        wireStartNodeId = null;
+                        tempWirePoints = [];
+                        analyzeSystem();
+                    }
+                }
+            }
+            renderWorkspace();
+        };
+
+        workspace.onpointerup = handlePointerUp;
+        workspace.onpointercancel = handlePointerUp;
+        workspace.onpointerleave = () => { draggedNode = null; tooltip.style.display = 'none'; hoveredNode = null; renderWorkspace(); };
 
         function handleNodeClick(e, id) {
             if (mode === 'erase') {
