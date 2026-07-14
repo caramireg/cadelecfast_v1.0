@@ -866,7 +866,18 @@ const SYMBOLS_B64 = {
             analyzeSystem();
         }
 
+        let renderPending = false;
         function renderWorkspace() {
+            if (!renderPending) {
+                renderPending = true;
+                requestAnimationFrame(() => {
+                    _renderWorkspaceSync();
+                    renderPending = false;
+                });
+            }
+        }
+
+        function _renderWorkspaceSync() {
             const existingNodes = document.querySelectorAll('.node');
             existingNodes.forEach(el => {
                 const id = el.getAttribute('data-id');
