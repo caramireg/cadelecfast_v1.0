@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1440, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cadelec fast - Diseño Eléctrico</title>
     <script>
         if (sessionStorage.getItem('cadelec_auth') !== 'cadelec2026') {
@@ -225,7 +225,45 @@
             cursor: crosshair;
         }
 
-        /* Eliminamos el CSS Zoom manual, usaremos el Viewport Meta Tag para auto-escalado nativo */
+        /* Responsive Tablet Design - Ajuste nativo sin zoom */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 210px; /* Reducimos paneles laterales */
+            }
+            .header {
+                padding: 10px;
+            }
+            .header h1 {
+                font-size: 0.9rem;
+            }
+            .header p {
+                font-size: 0.7rem;
+            }
+            .panel {
+                padding: 10px;
+            }
+            .panel h2 {
+                font-size: 0.85rem;
+                margin-bottom: 5px;
+            }
+            .tool-btn {
+                padding: 8px 6px;
+                font-size: 0.8rem;
+                margin-bottom: 5px;
+            }
+            .tool-icon {
+                font-size: 1rem;
+                margin-right: 5px;
+            }
+            .action-btns {
+                padding: 10px;
+                gap: 5px;
+            }
+            .btn {
+                font-size: 0.75rem;
+                padding: 6px 4px;
+            }
+        }
 
         /* Capa de plano arquitectónico */
         #canvas-bg {
@@ -1107,9 +1145,16 @@ const SYMBOLS_B64 = {
 
         function getEventPos(e) {
             const rect = workspace.getBoundingClientRect();
+            const scaleX = rect.width / workspace.offsetWidth || 1;
+            const scaleY = rect.height / workspace.offsetHeight || 1;
             let clientX = e.clientX;
             let clientY = e.clientY;
-            return { x: clientX - rect.left, y: clientY - rect.top, rawX: clientX, rawY: clientY };
+            return { 
+                x: (clientX - rect.left) / scaleX, 
+                y: (clientY - rect.top) / scaleY, 
+                rawX: clientX, 
+                rawY: clientY 
+            };
         }
 
         const handleWorkspaceMove = (e) => {
