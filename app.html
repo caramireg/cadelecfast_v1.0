@@ -867,8 +867,11 @@ const SYMBOLS_B64 = {
         }
 
         function renderWorkspace() {
-            const nodeElements = document.querySelectorAll('.node');
-            nodeElements.forEach(el => el.remove());
+            const existingNodes = document.querySelectorAll('.node');
+            existingNodes.forEach(el => {
+                const id = el.getAttribute('data-id');
+                if (!nodes.find(n => n.id === id)) el.remove();
+            });
 
             wireLayer.innerHTML = '';
             wires.forEach((wire, index) => {
@@ -1056,10 +1059,17 @@ const SYMBOLS_B64 = {
             }
 
             nodes.forEach(node => {
-                const el = document.createElement('div');
-                el.classList.add('node');
+                let el = document.querySelector(`.node[data-id="${node.id}"]`);
+                if (!el) {
+                    el = document.createElement('div');
+                    el.setAttribute('data-id', node.id);
+                    el.onpointerdown = (e) => handleNodePointerDown(e, node.id);
+                    el.onclick = (e) => { e.stopPropagation(); handleNodeClick(e, node.id); };
+                    workspace.appendChild(el);
+                }
+
+                el.className = 'node';
                 if(node.rounded) el.classList.add('rounded');
-                
                 if (node.id === selectedNodeId) el.classList.add('selected');
                 if (node.id === wireStartNodeId) el.classList.add('wiring');
                 
@@ -1071,11 +1081,17 @@ const SYMBOLS_B64 = {
                     if (circuit) {
                         el.style.borderColor = circuit.color;
                         el.style.borderWidth = '3px';
+                    } else {
+                        el.style.borderColor = 'var(--primary)';
+                        el.style.borderWidth = '2px';
                     }
                 } else {
                     if ((node.usedSlots || 0) > node.circuits) {
                         el.style.borderColor = 'var(--danger)';
                         el.style.boxShadow = '0 0 15px rgba(231,76,60,0.8)';
+                    } else {
+                        el.style.borderColor = 'var(--primary)';
+                        el.style.boxShadow = 'none';
                     }
                 }
 
@@ -1083,13 +1099,11 @@ const SYMBOLS_B64 = {
                 if(node.type === 'board') extraInfo = `<br>${node.usedSlots || 0}/${node.circuits} Vías`;
                 else if (node.power > 0) extraInfo = `<br>${node.power}W`;
 
-                el.innerHTML = `<img src="${node.img}" style="width: 26px; height: 26px; object-fit: contain; pointer-events: none;" alt="${node.label}">
+                let newHTML = `<img src="${node.img}" style="width: 26px; height: 26px; object-fit: contain; pointer-events: none;" alt="${node.label}">
                                 <div class="label">${node.label} ${extraInfo}</div>`;
-                
-                el.onpointerdown = (e) => handleNodePointerDown(e, node.id);
-                el.onclick = (e) => { e.stopPropagation(); handleNodeClick(e, node.id); };
-                
-                workspace.appendChild(el);
+                if (el.innerHTML !== newHTML) {
+                    el.innerHTML = newHTML;
+                }
             });
         }
 
