@@ -30,9 +30,14 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             display: flex;
-            height: 100vh;
             overflow: hidden;
             background-color: var(--light);
             color: var(--dark);
@@ -1081,7 +1086,7 @@ const SYMBOLS_B64 = {
                 el.innerHTML = `<img src="${node.img}" style="width: 26px; height: 26px; object-fit: contain; pointer-events: none;" alt="${node.label}">
                                 <div class="label">${node.label} ${extraInfo}</div>`;
                 
-                el.onmousedown = (e) => { e.stopPropagation(); handleNodeMouseDown(e, node.id); };
+                el.onpointerdown = (e) => handleNodePointerDown(e, node.id);
                 el.onclick = (e) => { e.stopPropagation(); handleNodeClick(e, node.id); };
                 
                 workspace.appendChild(el);
@@ -1090,13 +1095,19 @@ const SYMBOLS_B64 = {
 
         // --- INTERACCIONES ---
 
-        workspace.onmousemove = (e) => {
+        const getEventPos = (e) => {
             const rect = workspace.getBoundingClientRect();
-            mousePos = {x: e.clientX - rect.left, y: e.clientY - rect.top};
+            return {x: e.clientX - rect.left, y: e.clientY - rect.top};
+        };
+
+        const handleWorkspaceMove = (e) => {
+            const pos = getEventPos(e);
+            mousePos = {x: pos.x, y: pos.y};
             
+            // Hover logic
             let newHoveredNode = null;
             for (const node of nodes) {
-                if (Math.hypot(node.x - mousePos.x, node.y - mousePos.y) < 25) {
+                if (Math.hypot(node.x - pos.x, node.y - pos.y) < 25) {
                     newHoveredNode = node;
                     break;
                 }
@@ -1111,15 +1122,15 @@ const SYMBOLS_B64 = {
             if (mode === 'calibrate') {
                 tooltip.style.left = (e.clientX + 15) + 'px';
                 tooltip.style.top = (e.clientY + 15) + 'px';
-                if (calibPoints.length === 1) renderWorkspace(); // Para animar la línea
+                if (calibPoints.length === 1) renderWorkspace();
             }
 
             if (mode === 'measure') {
                 tooltip.style.left = (e.clientX + 15) + 'px';
                 tooltip.style.top = (e.clientY + 15) + 'px';
                 if (measurePoints.length === 1 && pxPerMeter) {
-                    let dx = mousePos.x - measurePoints[0].x;
-                    let dy = mousePos.y - measurePoints[0].y;
+                    let dx = pos.x - measurePoints[0].x;
+                    let dy = pos.y - measurePoints[0].y;
                     let pxDist = Math.sqrt(dx*dx + dy*dy);
                     let mDist = pxDist / pxPerMeter;
                     tooltip.innerText = `📏 ${mDist.toFixed(2)} m`;
@@ -1128,23 +1139,28 @@ const SYMBOLS_B64 = {
             }
 
             if (draggedNode && mode === 'select') {
-                let newX = mousePos.x;
-                let newY = mousePos.y;
+                let newX = pos.x;
+                let newY = pos.y;
+                const rect = workspace.getBoundingClientRect();
                 
                 newX = Math.max(20, Math.min(newX, rect.width - 20));
                 newY = Math.max(20, Math.min(newY, rect.height - 20));
 
-                draggedNode.x = newX;
-                draggedNode.y = newY;
-                renderWorkspace();
+                const node = nodes.find(n => n.id === draggedNode);
+                if (node) {
+                    node.x = newX;
+                    node.y = newY;
+                    renderWorkspace();
+                }
             }
 
             if (mode === 'wire' && wireStartNodeId) {
                 renderWorkspace();
             }
         };
+        workspace.onpointermove = handleWorkspaceMove;
 
-        workspace.onclick = (e) => {
+        workspace.onpointerdown = (e) => {
             if (e.target === workspace || e.target === wireLayer || e.target === canvasBg) {
                 if (mode === 'select') {
                     selectedNodeId = null;
@@ -1153,11 +1169,12 @@ const SYMBOLS_B64 = {
                     renderWorkspace();
                 } else if (mode === 'wire') {
                     if (wireStartNodeId) {
-                        tempWirePoints.push({x: mousePos.x, y: mousePos.y});
+                        tempWirePoints.push(getEventPos(e));
                         renderWorkspace();
                     }
                 } else if (mode === 'calibrate') {
-                    calibPoints.push({x: mousePos.x, y: mousePos.y});
+                    const pos = getEventPos(e);
+                    calibPoints.push({x: pos.x, y: pos.y});
                     if (calibPoints.length === 1) {
                         tooltip.innerText = "Haz clic en el segundo punto (extremo de la pared)...";
                         renderWorkspace();
@@ -1175,14 +1192,13 @@ const SYMBOLS_B64 = {
                             } else {
                                 alert("Los puntos están demasiado juntos. Inténtalo de nuevo.");
                             }
-                        } else {
-                            alert("Calibración cancelada. El valor debe ser numérico.");
                         }
                         setMode('select');
-                        analyzeSystem(); // Para recalcular longitudes
+                        analyzeSystem();
                     }
                 } else if (mode === 'measure') {
-                    measurePoints.push({x: mousePos.x, y: mousePos.y});
+                    const pos = getEventPos(e);
+                    measurePoints.push({x: pos.x, y: pos.y});
                     if (measurePoints.length === 1) {
                         tooltip.innerText = "Mueve el ratón para ver la distancia, haz clic para terminar...";
                         renderWorkspace();
@@ -1192,22 +1208,36 @@ const SYMBOLS_B64 = {
                         let pxDist = Math.sqrt(dx*dx + dy*dy);
                         let mDist = pxDist / pxPerMeter;
                         alert(`📐 Medición: ${mDist.toFixed(2)} metros.`);
-                        measurePoints = []; // Reiniciar para poder medir otra vez
+                        measurePoints = [];
                         tooltip.innerText = "Haz clic en el punto de inicio para medir...";
                         renderWorkspace();
                     }
                 }
+                workspace.setPointerCapture(e.pointerId);
             }
         };
 
-        function handleNodeMouseDown(e, id) {
-            if (mode !== 'select') return;
-            draggedNode = nodes.find(n => n.id === id);
-            selectNode(id);
+        function handleNodePointerDown(e, id) {
+            e.stopPropagation();
+            if (mode === 'select') {
+                draggedNode = id;
+                workspace.setPointerCapture(e.pointerId);
+                selectNode(id);
+            } else if (mode === 'erase') {
+                handleNodeClick(e, id);
+            } else if (mode === 'wire') {
+                handleNodeClick(e, id);
+            }
         }
 
-        workspace.onmouseup = () => { draggedNode = null; };
-        workspace.onmouseleave = () => { draggedNode = null; tooltip.style.display = 'none'; hoveredNode = null; renderWorkspace(); };
+        const handlePointerUp = (e) => {
+            draggedNode = null;
+            if (workspace.hasPointerCapture(e.pointerId)) workspace.releasePointerCapture(e.pointerId);
+        };
+
+        workspace.onpointerup = handlePointerUp;
+        workspace.onpointercancel = handlePointerUp;
+        workspace.onpointerleave = () => { draggedNode = null; tooltip.style.display = 'none'; hoveredNode = null; renderWorkspace(); };
 
         function handleNodeClick(e, id) {
             if (mode === 'erase') {
