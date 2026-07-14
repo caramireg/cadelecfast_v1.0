@@ -723,7 +723,8 @@ const SYMBOLS_B64 = {
         // --- ESTADO DE LA APLICACIÓN ---
         let nodes = [];
         let wires = [];
-        let mode = 'select'; // 'select', 'wire', 'erase', 'calibrate'
+        let mode = 'select'; // 'select', 'wire', 'erase', 'calibrate', 'place_component'
+        let componentToPlace = null;
         let selectedNodeId = null;
         let selectedWireIndex = null;
         let wireStartNodeId = null;
@@ -808,6 +809,11 @@ const SYMBOLS_B64 = {
                 tooltip.style.display = 'block';
                 tooltip.innerText = "Haz clic en el primer punto de referencia...";
             }
+            else if (mode === 'place_component') {
+                workspace.style.cursor = 'crosshair';
+                tooltip.style.display = 'block';
+                tooltip.innerText = "Haz clic en el lienzo para colocar el componente...";
+            }
             else if (mode === 'measure') {
                 if (!pxPerMeter) {
                     alert("¡Atención! Debes calibrar la escala primero antes de medir.");
@@ -824,10 +830,11 @@ const SYMBOLS_B64 = {
         }
 
         function addComponent(type) {
-            const rect = workspace.getBoundingClientRect();
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            
+            componentToPlace = type;
+            setMode('place_component');
+        }
+
+        function spawnComponentAt(type, x, y) {
             let power = 0;
             let img = '';
             let label = '';
@@ -847,8 +854,8 @@ const SYMBOLS_B64 = {
             const node = {
                 id: idCounter++,
                 type: type,
-                x: centerX + (Math.random() * 60 - 30),
-                y: centerY + (Math.random() * 60 - 30),
+                x: x,
+                y: y,
                 power: power,
                 img: img,
                 label: label,
@@ -860,7 +867,7 @@ const SYMBOLS_B64 = {
 
             nodes.push(node);
             
-            if (mode !== 'select') setMode('select');
+            setMode('select');
             
             selectNode(node.id); 
             analyzeSystem();
@@ -1197,6 +1204,9 @@ const SYMBOLS_B64 = {
                         tempWirePoints.push(getEventPos(e));
                         renderWorkspace();
                     }
+                } else if (mode === 'place_component') {
+                    const pos = getEventPos(e);
+                    spawnComponentAt(componentToPlace, pos.x, pos.y);
                 } else if (mode === 'calibrate') {
                     const pos = getEventPos(e);
                     calibPoints.push({x: pos.x, y: pos.y});
