@@ -213,29 +213,13 @@
             cursor: crosshair;
         }
 
-        /* Responsive Tablet Design */
+        /* Responsive Tablet Design - Ajuste a 60% de escala visual */
         @media (max-width: 992px) {
+            .app-container {
+                zoom: 0.6; /* Escala global al 60% */
+            }
             .sidebar {
-                width: 220px; /* Reducimos paneles laterales */
-            }
-            .header h1 {
-                font-size: 1rem;
-            }
-            .tool-btn {
-                padding: 6px;
-                font-size: 0.8rem;
-            }
-            .tool-icon {
-                font-size: 1.2rem;
-                margin-right: 5px;
-            }
-            .panel h2 {
-                font-size: 0.85rem;
-                margin-bottom: 5px;
-            }
-            .action-btns {
-                gap: 5px;
-                padding: 10px;
+                width: 280px; /* Ancho ajustado para la escala */
             }
         }
 
@@ -1139,6 +1123,7 @@ const SYMBOLS_B64 = {
             mousePos = {x: pos.x, y: pos.y};
             const clientX = pos.rawX;
             const clientY = pos.rawY;
+            const rect = workspace.getBoundingClientRect();
             
             let newHoveredNode = null;
             for (const node of nodes) {
