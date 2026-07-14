@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cadelec fast - Diseño Eléctrico</title>
     <script>
         if (sessionStorage.getItem('cadelec_auth') !== 'cadelec2026') {
@@ -209,7 +209,34 @@
                 linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
             background-size: 20px 20px;
             overflow: hidden;
+            touch-action: none;
             cursor: crosshair;
+        }
+
+        /* Responsive Tablet Design */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 220px; /* Reducimos paneles laterales */
+            }
+            .header h1 {
+                font-size: 1rem;
+            }
+            .tool-btn {
+                padding: 6px;
+                font-size: 0.8rem;
+            }
+            .tool-icon {
+                font-size: 1.2rem;
+                margin-right: 5px;
+            }
+            .panel h2 {
+                font-size: 0.85rem;
+                margin-bottom: 5px;
+            }
+            .action-btns {
+                gap: 5px;
+                padding: 10px;
+            }
         }
 
         /* Capa de plano arquitectónico */
@@ -1082,6 +1109,7 @@ const SYMBOLS_B64 = {
                                 <div class="label">${node.label} ${extraInfo}</div>`;
                 
                 el.onmousedown = (e) => { e.stopPropagation(); handleNodeMouseDown(e, node.id); };
+                el.ontouchstart = (e) => { e.preventDefault(); e.stopPropagation(); handleNodeMouseDown(e, node.id); };
                 el.onclick = (e) => { e.stopPropagation(); handleNodeClick(e, node.id); };
                 
                 workspace.appendChild(el);
@@ -1090,9 +1118,27 @@ const SYMBOLS_B64 = {
 
         // --- INTERACCIONES ---
 
-        workspace.onmousemove = (e) => {
+        function getEventPos(e) {
             const rect = workspace.getBoundingClientRect();
-            mousePos = {x: e.clientX - rect.left, y: e.clientY - rect.top};
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            return { x: clientX - rect.left, y: clientY - rect.top, rawX: clientX, rawY: clientY };
+        }
+
+        const handleWorkspaceMove = (e) => {
+            const pos = getEventPos(e);
+            mousePos = {x: pos.x, y: pos.y};
+            const clientX = pos.rawX;
+            const clientY = pos.rawY;
             
             let newHoveredNode = null;
             for (const node of nodes) {
@@ -1109,14 +1155,14 @@ const SYMBOLS_B64 = {
             }
             
             if (mode === 'calibrate') {
-                tooltip.style.left = (e.clientX + 15) + 'px';
-                tooltip.style.top = (e.clientY + 15) + 'px';
+                tooltip.style.left = (clientX + 15) + 'px';
+                tooltip.style.top = (clientY + 15) + 'px';
                 if (calibPoints.length === 1) renderWorkspace(); // Para animar la línea
             }
 
             if (mode === 'measure') {
-                tooltip.style.left = (e.clientX + 15) + 'px';
-                tooltip.style.top = (e.clientY + 15) + 'px';
+                tooltip.style.left = (clientX + 15) + 'px';
+                tooltip.style.top = (clientY + 15) + 'px';
                 if (measurePoints.length === 1 && pxPerMeter) {
                     let dx = mousePos.x - measurePoints[0].x;
                     let dy = mousePos.y - measurePoints[0].y;
@@ -1143,6 +1189,8 @@ const SYMBOLS_B64 = {
                 renderWorkspace();
             }
         };
+        workspace.onmousemove = handleWorkspaceMove;
+        workspace.addEventListener('touchmove', handleWorkspaceMove, {passive: false});
 
         workspace.onclick = (e) => {
             if (e.target === workspace || e.target === wireLayer || e.target === canvasBg) {
@@ -1207,6 +1255,8 @@ const SYMBOLS_B64 = {
         }
 
         workspace.onmouseup = () => { draggedNode = null; };
+        workspace.addEventListener('touchend', () => { draggedNode = null; });
+        workspace.addEventListener('touchcancel', () => { draggedNode = null; });
         workspace.onmouseleave = () => { draggedNode = null; tooltip.style.display = 'none'; hoveredNode = null; renderWorkspace(); };
 
         function handleNodeClick(e, id) {
