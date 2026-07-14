@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso - Cadelec fast</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --dark: #1a252f;
+            --light: #ecf0f1;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--dark);
+            color: var(--light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .login-container {
+            background-color: var(--primary);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .logo {
+            width: 80%;
+            max-width: 250px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-weight: 400;
+            margin-bottom: 30px;
+            color: #bdc3c7;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #95a5a6;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #34495e;
+            background-color: #34495e;
+            color: white;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="password"]:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <img src="CADELEC.png" alt="Cadelec fast" class="logo">
+        <h2>Diseño Eléctrico CAD</h2>
+        
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="input-group">
+                <label for="password">Contraseña de Acceso</label>
+                <input type="password" id="password" placeholder="Ingresa la clave..." required autofocus>
+            </div>
+            
+            <button type="submit">Ingresar</button>
+            <div id="errorMessage" class="error-message">Contraseña incorrecta. Inténtalo de nuevo.</div>
+        </form>
+    </div>
+
+    <script>
+        function handleLogin(e) {
+            e.preventDefault();
+            const pass = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMessage');
+            
+            // Verificamos la contraseña proporcionada por el usuario
+            if (pass === 'cadelec2026') {
+                errorMsg.style.display = 'none';
+                // Guardar la autorización temporal en la sesión del navegador
+                sessionStorage.setItem('cadelec_auth', pass);
+                // Redirigir a la app principal
+                window.location.href = 'app.html';
+            } else {
+                errorMsg.style.display = 'block';
+                document.getElementById('password').value = '';
+                document.getElementById('password').focus();
+            }
+        }
+    </script>
+</body>
+</html>

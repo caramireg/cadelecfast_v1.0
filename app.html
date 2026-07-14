@@ -1,0 +1,2477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadelec fast - Diseño Eléctrico</title>
+    <script>
+        if (sessionStorage.getItem('cadelec_auth') !== 'cadelec2026') {
+            window.location.href = 'index.html';
+        }
+    </script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #3498db;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --grid-color: rgba(52, 152, 219, 0.2);
+            --neutral-color: #3498db;
+            --ground-color: #2ecc71;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--light);
+            color: var(--dark);
+        }
+
+        /* Sidebar / Controles */
+        .sidebar {
+            width: 290px;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .sidebar-left {
+            border-right: 2px solid #ccc;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-right {
+            border-left: 2px solid #ccc;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background-color: var(--primary);
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .panel {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .panel h2 {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .tool-btn {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: var(--light);
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .tool-btn:hover {
+            background-color: #e2e6e8;
+        }
+
+        .tool-btn.active {
+            background-color: var(--accent);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .tool-icon {
+            font-size: 1.5rem;
+            margin-right: 10px;
+        }
+
+        /* Area de Propiedades */
+        .property-group {
+            margin-bottom: 10px;
+        }
+        .property-group label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+        .property-group input, .property-group select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .conductor-inputs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .conductor-inputs > div {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .conductor-inputs label {
+            font-size: 0.7rem;
+            color: #555;
+            margin-bottom: 2px;
+        }
+        
+        .conductor-inputs input {
+            text-align: center;
+        }
+
+        /* Panel de Cálculos */
+        .circuit-card {
+            background: #f9f9f9;
+            border-left: 4px solid var(--accent);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .circuit-card.danger {
+            border-left-color: var(--danger);
+            background: #fdedec;
+        }
+        .circuit-card.success {
+            border-left-color: var(--success);
+            background: #eafaf1;
+        }
+        
+        .action-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 15px;
+            background: #fff;
+            border-top: 1px solid #eee;
+        }
+
+        .btn {
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: opacity 0.2s;
+            text-align: center;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-clear { background-color: var(--danger); }
+        .btn-save { background-color: var(--success); }
+        .btn-load { background-color: var(--primary); }
+
+        /* Lienzo de Dibujo */
+        .workspace {
+            flex: 1;
+            position: relative;
+            background-color: #ffffff;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        /* Capa de plano arquitectónico */
+        #canvas-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.4;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 0;
+        }
+
+        /* Elemento SVG para los cables */
+        #wire-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .wire {
+            stroke: #2c3e50;
+            stroke-linecap: round;
+            transition: stroke-width 0.2s, opacity 0.2s;
+        }
+
+        .wire-group:hover .wire, .wire-group:hover .wire-mark {
+            stroke-width: 6 !important;
+            opacity: 0.7;
+            cursor: pointer;
+        }
+        .wire-group {
+            pointer-events: stroke;
+        }
+
+        /* Nodos (Componentes) */
+        .node {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            background: white;
+            border: 2px solid var(--primary);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.4rem;
+            cursor: grab;
+            user-select: none;
+            z-index: 2;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .node.rounded { border-radius: 50%; }
+
+        .node:active {
+            cursor: grabbing;
+        }
+
+        .node.selected {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.8) !important;
+        }
+
+        .node.wiring {
+            border-color: var(--danger);
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
+        }
+
+        .node .label {
+            position: absolute;
+            bottom: -25px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            background: rgba(255,255,255,0.9);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            white-space: nowrap;
+            pointer-events: none;
+            color: #333;
+        }
+
+        /* Estilos de los Modales (Balance y Ayuda) */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 650px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px; right: 15px;
+            background: none; border: none;
+            font-size: 1.5rem; cursor: pointer; color: #7f8c8d;
+            transition: color 0.2s;
+        }
+        .modal-close:hover { color: var(--danger); }
+        
+        .balance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        .balance-table th, .balance-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        .balance-table th {
+            background-color: var(--primary);
+            color: white;
+        }
+        .balance-table tfoot th {
+            background-color: #ecf0f1;
+            color: var(--dark);
+            font-size: 1rem;
+        }
+
+        /* Estilos Guía de Uso Accordion */
+        .help-accordion {
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid var(--accent);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .help-accordion summary {
+            padding: 12px;
+            font-size: 1.05rem;
+            color: var(--primary);
+            font-weight: bold;
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+        }
+        .help-accordion summary::-webkit-details-marker {
+            display: none;
+        }
+        .help-accordion summary:hover {
+            background-color: #eef2f5;
+        }
+        .help-accordion summary span {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+        .help-content {
+            padding: 0 15px 15px 15px;
+            font-size: 0.9rem;
+            color: #444;
+            line-height: 1.5;
+        }
+        .help-content ul {
+            margin-left: 20px;
+            margin-top: 5px;
+        }
+        
+        /* Tooltip Flotante (Para calibración) */
+        #tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Panel Lateral Izquierdo (Herramientas y Propiedades) -->
+    <div class="sidebar sidebar-left">
+        <div class="header">
+            <img src="CADELEC.png" style="width: 100%; max-width: 180px; margin-bottom: 10px;" alt="Cadelec fast">
+            <p>Herramientas y Componentes</p>
+        </div>
+
+        <div class="panel" style="flex: none; max-height: 55%; overflow-y: auto;">
+            <h2>Herramientas</h2>
+            <button class="tool-btn active" id="btn-select" onclick="setMode('select')">
+                <span class="tool-icon">👆</span> Selección / Mover
+            </button>
+            <button class="tool-btn" id="btn-wire" onclick="setMode('wire')">
+                <span class="tool-icon">✏️</span> Trazar Cable
+            </button>
+            <button class="tool-btn" id="btn-erase" onclick="setMode('erase')">
+                <span class="tool-icon">🗑️</span> Borrador
+            </button>
+            
+            <h2 style="margin-top: 15px;">Fondo y Escala</h2>
+            <button class="tool-btn" onclick="document.getElementById('file-input').click()">
+                <span class="tool-icon">📁</span> Cargar Plano Base
+            </button>
+            <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadPlan(this)">
+            
+            <button class="tool-btn" id="btn-calibrate" onclick="setMode('calibrate')">
+                <span class="tool-icon">📏</span> Calibrar Escala (Metros)
+            </button>
+            <button class="tool-btn" id="btn-measure" onclick="setMode('measure')">
+                <span class="tool-icon">📐</span> Medir Distancia
+            </button>
+            
+            <h2 style="margin-top: 15px;">Componentes</h2>
+            <button class="tool-btn" onclick="addComponent('board')">
+                <img src="simbolos/Tablero.png" style="width: 24px; height: 24px; margin-right: 10px; object-fit: contain;" alt="Tablero"> Tablero de Distribución
+            </button>
+            <button class="tool-btn" onclick="addComponent('outlet')">
+                <img src="simbolos/tomacorriente.png" style="width: 24px; height: 24px; margin-right: 10px; object-fit: contain;" alt="Toma"> Tomacorriente (180W)
+            </button>
+            <button class="tool-btn" onclick="addComponent('light')">
+                <img src="simbolos/luminaria.png" style="width: 24px; height: 24px; margin-right: 10px; object-fit: contain;" alt="Luz"> Luminaria (60W)
+            </button>
+            <button class="tool-btn" onclick="addComponent('switch')">
+                <img src="simbolos/Interruptor sencillo.png" style="width: 24px; height: 24px; margin-right: 10px; object-fit: contain;" alt="Int"> Interruptor Simple
+            </button>
+            <button class="tool-btn" onclick="addComponent('switch3w')">
+                <img src="simbolos/Interruptor conmutado.png" style="width: 24px; height: 24px; margin-right: 10px; object-fit: contain;" alt="Conmut"> Conmutador (3 Vías)
+            </button>
+        </div>
+
+        <!-- Panel de Propiedades Editable -->
+        <div class="panel" id="properties-panel" style="display: none; background: #fdfdfd; border-left: 3px solid var(--accent); flex: none;">
+            <h2>Propiedades</h2>
+            <div class="property-group">
+                <label>Tipo de Elemento:</label>
+                <input type="text" id="prop-type" disabled style="background:#eee;">
+            </div>
+            
+            <div id="prop-power-group" class="property-group">
+                <label>Potencia (Watts):</label>
+                <input type="number" id="prop-power" min="0" onchange="updateSelectedNode()">
+            </div>
+
+            <div id="prop-outlet-group" class="property-group" style="display:none;">
+                <label>Tipo de Carga (Tomacorriente):</label>
+                <select id="prop-outlet-type" onchange="updateOutletType()">
+                    <option value="gen">Uso General (180W / 120V)</option>
+                    <option value="nevera">Nevera (600W / 120V)</option>
+                    <option value="lavadora">Lavadora (1200W / 120V)</option>
+                    <option value="fogon">Fogón Eléctrico (4000W / 240V)</option>
+                    <option value="ev">Cargador Vehículo EV (7200W / 240V)</option>
+                    <option value="custom">Personalizado...</option>
+                </select>
+            </div>
+
+            <div id="prop-board-group" class="property-group" style="display:none;">
+                <label>Número de Vías/Circuitos:</label>
+                <input type="number" id="prop-circuits" min="1" max="48" onchange="updateSelectedNode()">
+            </div>
+
+            <div id="prop-wire-group" class="property-group" style="display:none;">
+                <label>Tipo de Instalación (Canalización):</label>
+                <select id="prop-wire-routing" onchange="updateSelectedWire()" style="margin-bottom: 8px;">
+                    <option value="pared">Por Pared (Línea Continua)</option>
+                    <option value="piso">Por Piso (Línea Discontinua)</option>
+                    <option value="techo">Por Techo (Línea Mixta)</option>
+                </select>
+                <label>Conductores del Tramo:</label>
+                <div class="conductor-inputs">
+                    <div>
+                        <label>Fases</label>
+                        <input type="number" id="prop-wire-fases" min="0" max="8" value="1" onchange="updateSelectedWire()">
+                    </div>
+                    <div>
+                        <label>Neutros</label>
+                        <input type="number" id="prop-wire-neutros" min="0" max="8" value="1" onchange="updateSelectedWire()">
+                    </div>
+                    <div>
+                        <label>Tierras</label>
+                        <input type="number" id="prop-wire-tierras" min="0" max="8" value="1" onchange="updateSelectedWire()">
+                    </div>
+                </div>
+                <div style="font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-top: 5px;">
+                    <span style="color:var(--dark); font-weight:bold;">Fase</span> | <span style="color:var(--neutral-color); font-weight:bold;">Neutro</span> | <span style="color:var(--ground-color); font-weight:bold;">Tierra</span>
+                </div>
+                <div style="margin-top:10px;">
+                    <label>Longitud Real Estimada:</label>
+                    <input type="text" id="prop-wire-length" disabled style="background:#eee; font-weight:bold; color:var(--primary);">
+                </div>
+            </div>
+
+            <button class="btn btn-clear" style="width: 100%; margin-top: 10px;" onclick="deleteSelectedElement()">🗑️ Eliminar Seleccionado</button>
+        </div>
+    </div>
+
+    <!-- Lienzo de Trabajo (Centro) -->
+    <div class="workspace" id="workspace">
+        <div id="canvas-bg"></div>
+        <svg id="wire-layer"></svg>
+        <div id="tooltip">Haz clic en el primer punto...</div>
+    </div>
+
+    <!-- Panel Lateral Derecho (Análisis y Reportes) -->
+    <div class="sidebar sidebar-right">
+        <div class="header" style="background-color: var(--secondary);">
+            <h1>Análisis RETIE</h1>
+            <p>Cálculos y Reportes</p>
+        </div>
+
+        <div class="panel">
+            <h2>Cuadro de Cargas</h2>
+            <div id="circuits-container">
+                <p style="font-size:0.85rem; color:#7f8c8d; text-align: center; margin-top: 20px;">
+                    Agrega un Tablero, componentes y conéctalos para calcular la carga.
+                </p>
+            </div>
+        </div>
+
+        <div class="action-btns">
+            <button class="btn btn-clear" onclick="clearWorkspace()">Limpiar Todo</button>
+            <button class="btn btn-save" onclick="saveDesign()">💾 Guardar (Web)</button>
+            <button class="btn btn-load" onclick="loadDesign()">📂 Cargar (Web)</button>
+            <button class="btn" style="background-color: #34495e;" onclick="downloadProject()">⬇️ Bajar Proy.</button>
+            <button class="btn" style="background-color: #34495e;" onclick="document.getElementById('file-upload-project').click()">⬆️ Subir Proy.</button>
+            <input type="file" id="file-upload-project" style="display:none" accept=".json" onchange="uploadProject(this)">
+            
+            <button class="btn" style="background-color: #8e44ad;" onclick="exportImage()">📷 Exp. Plano</button>
+            <button class="btn" style="background-color: #e67e22;" onclick="exportCSV()">📊 Exp. Cuadro</button>
+            <button class="btn" style="background-color: #2980b9;" onclick="showBalanceModal()">⚖️ Balance</button>
+            <button class="btn" style="background-color: #f1c40f; color:#333;" onclick="showMaterialsModal()">🛒 Materiales</button>
+            <button class="btn" style="background-color: #16a085; grid-column: span 2;" onclick="showHelpModal()">❓ Guía de Uso</button>
+        </div>
+    </div>
+
+    <!-- Modal de Balance de Fases -->
+    <div class="modal-overlay" id="balance-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeBalanceModal()">✖</button>
+            <h2 style="color: var(--dark); border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 15px;">
+                ⚖️ Balance de Fases
+            </h2>
+            <p style="font-size: 0.9rem; color: #555; margin-bottom: 15px;">
+                El algoritmo divide las cargas de 240V equitativamente (50/50) y asigna inteligentemente los circuitos de 120V a la fase con menor carga disponible para lograr un equilibrio óptimo según normas.
+            </p>
+            <div id="balance-results"></div>
+        </div>
+    </div>
+
+    <!-- Modal de Ayuda (Guía de Uso) -->
+    <div class="modal-overlay" id="help-modal">
+        <div class="modal-content" style="max-width: 800px; max-height: 85vh; overflow-y: auto;">
+            <button class="modal-close" onclick="closeHelpModal()">✖</button>
+            <h2 style="color: var(--dark); border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 15px;">
+                ❓ Guía de Uso de Cadelec fast
+            </h2>
+            
+            <p style="color: #555; margin-bottom: 20px;">
+                Bienvenido al simulador de instalaciones eléctricas. Haz clic en las siguientes secciones para aprender a utilizar todas las funciones.
+            </p>
+
+            <details class="help-accordion" open>
+                <summary><span>👆</span> 1. Selección, Mover y Editar Propiedades</summary>
+                <div class="help-content">
+                    <p>Usa la herramienta <b>Selección / Mover</b> para arrastrar los componentes libremente por el lienzo central.</p>
+                    <p>Al hacer <b>clic sobre un componente o sobre un cable</b>, se abrirá el panel inferior izquierdo de <i>Propiedades</i>. Podrás cambiar:</p>
+                    <ul>
+                        <li>La potencia (W) y voltaje (V) de los equipos.</li>
+                        <li>El tipo de equipo (Ej: Nevera, Lavadora, Cargador EV).</li>
+                        <li>El número de vías de un tablero.</li>
+                        <li>La <b>cantidad de conductores (Fases, Neutros, Tierras)</b> que pasan por un tramo de tubería, y por dónde va la ruta (piso, pared, techo).</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="help-accordion">
+                <summary><span>📏</span> 2. Calibrar Escala y Plano de Fondo</summary>
+                <div class="help-content">
+                    <p>Para trabajar sobre un plano real, primero usa el botón <b>⬆️ Subir Plano (Fondo)</b>. Luego, para conocer la longitud real del cableado:</p>
+                    <ul>
+                        <li>Selecciona la herramienta <b>Calibrar Escala</b>.</li>
+                        <li>Haz clic en un punto de inicio y luego en un punto final (como el ancho de una pared conocida).</li>
+                        <li>Ingresa la distancia que mide esa pared en la vida real. A partir de ese momento, el simulador calculará en automático los metros de tubería y cableado.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="help-accordion">
+                <summary><span>✏️</span> 3. Trazado de Cables y Circuitos</summary>
+                <div class="help-content">
+                    <p>Para unir componentes eléctricamente:</p>
+                    <ul>
+                        <li>Activa la herramienta <b>Trazar Cable</b>.</li>
+                        <li>Haz clic en el componente de origen (su borde se iluminará).</li>
+                        <li>Haz clic en puntos intermedios en el plano si quieres doblar el cable, o haz clic directamente en el componente de destino para finalizar.</li>
+                        <li><b>¡Regla Clave!</b> Todo circuito válido debe estar conectado a un 🔲 Tablero de Distribución para que se hagan los cálculos.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="help-accordion">
+                <summary><span>⚡</span> 4. Cálculos Automáticos RETIE / NTC 2050</summary>
+                <div class="help-content">
+                    <p>Al hacer clic en el botón <b>📊 Balance de Fases</b>, el sistema automatiza:</p>
+                    <ul>
+                        <li><b>Cálculo de Corriente (I = P/V):</b> Incluyendo un factor del 125% adicional para cargas especiales como Cargadores EV.</li>
+                        <li><b>Sugerencia de Breaker y Conductor (AWG):</b> Asigna el breaker (monopolar o bipolar) y el calibre mínimo de cable de cobre recomendado.</li>
+                        <li><b>Balanceo Automático:</b> Organiza los circuitos intentando mantener las fases A y B lo más balanceadas posible (diferencia menor al 10%).</li>
+                        <li><b>Cálculo de Caída de Tensión (%):</b> Mide la distancia física del trazado más largo de cada circuito y calcula la caída de tensión en base al conductor AWG sugerido. Emite alerta si excede el 3%.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="help-accordion">
+                <summary><span>💾</span> 5. Opciones de Guardado y Exportación</summary>
+                <div class="help-content">
+                    <ul>
+                        <li><b>⬇️ Bajar Proy:</b> Guarda tu progreso actual en un archivo `.json` en tu computadora para seguir diseñando después.</li>
+                        <li><b>⬆️ Subir Proy:</b> Carga un diseño guardado previamente.</li>
+                        <li><b>📷 Exportar Plano:</b> Genera una imagen PNG de alta calidad de tu diseño, incluyendo un Cuadro de Convenciones (Simbología) generado automáticamente.</li>
+                        <li><b>🛒 Lista de Materiales:</b> Estima cantidades de tomas, cajas, metros de cableado (asumiendo 3m de tolerancia vertical) y tubería, y exporta el listado a un archivo de Excel (.csv).</li>
+                    </ul>
+                </div>
+            </details>
+
+            <h3 style="color: var(--primary); margin-top: 25px; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
+                ❓ Preguntas Frecuentes (FAQ)
+            </h3>
+
+            <details class="help-accordion">
+                <summary><b>¿Por qué un circuito me marca "⚠️ ¡MEZCLADO!" o "ERROR"?</b></summary>
+                <div class="help-content">
+                    <p>Ocurre cuando conectas en un mismo ramal equipos que funcionan a 120V junto con equipos que funcionan a 240V. El simulador y el Reglamento RETIE prohíben mezclar voltajes en el mismo circuito. <b>Solución:</b> Separa el equipo de 240V en un circuito dedicado directo al tablero.</p>
+                </div>
+            </details>
+
+            <details class="help-accordion">
+                <summary><b>¿Cómo modifico el recorrido de un cable ya trazado?</b></summary>
+                <div class="help-content">
+                    <p>Actualmente, para alterar drásticamente la ruta, es mejor borrar el cable (Herramienta borrador o tecla <kbd>Supr</kbd>) y volver a trazarlo usando clics intermedios para generar quiebres o esquinas perfectas.</p>
+                </div>
+            </details>
+
+            <details class="help-accordion">
+                <summary><b>¿Por qué la longitud de tubería me sale como "No Calibrado"?</b></summary>
+                <div class="help-content">
+                    <p>Significa que no le has dicho al simulador cuánto mide el plano en la vida real. Usa el botón <b>Calibrar Escala</b> y mide una pared de referencia para solucionar esto.</p>
+                </div>
+            </details>
+
+            <details class="help-accordion">
+                <summary><b>¿Cómo evito la caída de tensión alta (mayor al 3%)?</b></summary>
+                <div class="help-content">
+                    <p>Si la alerta se enciende, significa que el cable es muy largo o la carga es muy alta para el calibre AWG asignado. En la vida real, el diseñador deberá incrementar el calibre del cable manualmente (ej. de AWG 12 a AWG 10) para ese circuito, o reducir la carga cambiando el circuito de tomacorriente.</p>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <!-- Modal de Lista de Materiales (BOM) -->
+    <div class="modal-overlay" id="materials-modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <button class="modal-close" onclick="closeMaterialsModal()">✖</button>
+            <h2 style="color: var(--dark); border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 15px;">
+                🛒 Lista de Materiales Estimados
+            </h2>
+            <p style="font-size: 0.9rem; color: #555; margin-bottom: 15px;">
+                Cálculo preliminar basado en el diseño en pantalla. Se asume un margen vertical de 3 metros por cada conexión (bajadas a tomas/interruptores y subidas a luminarias). 
+                Los precios son referencias promedio estimadas.
+            </p>
+            <div id="materials-results"></div>
+            <div style="text-align: right; margin-top: 15px;">
+                <button class="btn btn-save" onclick="exportMaterialsCSV()">📥 Exportar a Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+const SYMBOLS_B64 = {
+    "switch3w": "data:image/png;base64,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",
+    "switch": "data:image/png;base64,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",
+    "light": "data:image/png;base64,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",
+    "board": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAYAAAADPCAMAAADLYPaAAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAABaUExURf///+/v739/fz8/PzMzMxcXFxAQEDc3N4+Pj5+fnwAAAB8fH19fX/7+/u7u7g8PD9/f387Ozp6ent7e3q6urm9vb76+vk9PTy8vL46OjgwMDCcnJ8/Pz7+/v7qStkEAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAXNSURBVHhe7dzbUltHFEVRI8WJAQU7EJOr//83U+UIWEyrt86l+5y+rPFo8zSXS1W9S/jDBzMzMzMzMzMzMzMzMzMzMzMzMzMzMyvk5nA8/vTxZyvo4y/H4yeGf3F7Z5u4ZfmzA3/QyrgywP3RSnjtf7ph+bPzAIdfLbuHw+eX/F/Y/ZUHKOW30+s//ztWFx6gjMe3Tx8PsLmHw73m9wDbejq9fPR7gB38/u6z54zVhQfI6eERnz1nrC48QD5PX3/47DljdeEBcnn+g9nfsLrwAHkkPnvOWF14gAyeXp+8CawuPMBqz/LkTWB14QFWevyTtS9gdeEB1vjhyZvA6sIDLKfnthirCw+w1MUnbwKrCw+wyMNf0z57zlhdeIAFLpzbYqwuPMBszzM+e85YXXiAeVLnthirCw8wR/rcFmN14QGmi85tMVYXHmCqSU/eBFYXHmCSq+e2GKsLDzDB9CdvAqsLD3DV+2+YLMLqwgPEpp7bYqwuPEDkae1nzxmrCw+QNufcFmN14QESZp7bYqwuPMBFs89tMVYXHuCC5U/eBFYXHoCWndtirC48wHsrn7wJrC48gJrwDZNFWF14gDdrzm0xVhce4OztF7oKYHXhAb5bfW6LsbrwAHnObTFWFx4g65M3gdXF6ANkfvImsLoYe4B857YYq4uBByjx5E1gdTHsAEu/YbIIq4tBB8h+bouxuhhygO0+e85YXYw3QJlzW4zVxWgDlDq3xVhdjDVA8SdvAquLgQbI8w2TRVhdDDNA4XNbjNXFIANs9eRNYHUxwgBbnNtirC76H2Cbc1uM1UXvAyz4ha4CWF10PcCG57YYq4uOB9j03BZjddHtAPs8eRNYXXQ6QLlvmCzC6qLHAfY4t8VYXfQ3wK5P3gRWF70NsNe5LcbqoqsBdjy3xVhddDRArl/oKoDVRTcD7Hxui7G66GOA/c9tMVYXPQxQ0ZM3gdVF+wNs/A2TRVhdND5ANee2GKuLpgeo78mbwOqi4QGqOrfFWF00O0Bl57YYq4s2Byj6C10FsLpocYAaz20xVhftDVDnuS3G6qKxAWp/8iawumhqgBq+YbIIq4uGBqj63BZjddHKAI08eRNYXbQxQP3nthirixYGaOHcFmN1Uf8ATT15E1hdVD5AM+e2GKuLqgdo6NwWY3VR8QAtPnkTWF3UOkC13zBZhNVFnQO0d26LsbqocYCGn7wJrC6qG6DRc1uM1UVlAzR7bouxuqhqgPafvAmsLuoZoO1zW4zVRS0DtH5ui7G6qGOAbp68Cawuahigh3NbjNXF7gN0cm6LsbrYeYDenrwJrC52HaCjc1uM1cV+A/R1bouxuthrgE6fvAmsLvYZoL9zW4zVxQ4DdHlui7G62HyAvp+8CawuNh6g23NbjNXFlgP0fG6LsbrYboAhnrwJrC62GqD3c1uM1cU2A/R/bouxuthggJGevAmsLooPMMi5LcbqovAAw5zbYqwuSg4w4JM3gdVFuQHGOrfFWF2UGmC0c1uM1UWRAcZ98iawuigwwJDnthiri+wDDHpui7G6yDzA6E/eBFYXOQcY+dwWY3WRb4Cxz20xVhe5BvCTN8LqIssAPrddweoiwwAV/5fBtWB1sXoAP3knYHWxbgCf26ZhdbFmAJ/bpmJ1sXwAP3mnY3WxcACf22ZhdbFoAJ/bZmJ1sWAAP3lnY3UxewCf2xZgdTFvgNb+y+BasLqYM4C/YbIUq4vpA/jcthyri4kD+Ny2CquLSQP4ybsSq4sJA/jcthqri2sD+NyWA6uLeAA/efNgdREN4HNbLqwu0gP43JYPq4vEAP6GSVasLi4O4HNbZqwuLgzgc1t2rC44gJ+8JbC6eD+Az21lsLrQAXxuK4XVxesAfvIWxOri0/8/cfK5raAjq4ubr0f54Pn7n6Nld/qX1eEl/+kb/8Y28b3+58MX/rlt5Hh3d397wz+17Xy79iFlZmZmZmZmZmZmZmZmZmZmV/wH+Wt5lKJDGDEAAAAASUVORK5CYII=",
+    "outlet": "data:image/png;base64,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"
+};
+        // --- ESTADO DE LA APLICACIÓN ---
+        let nodes = [];
+        let wires = [];
+        let mode = 'select'; // 'select', 'wire', 'erase', 'calibrate'
+        let selectedNodeId = null;
+        let selectedWireIndex = null;
+        let wireStartNodeId = null;
+        let tempWirePoints = [];
+        let draggedNode = null;
+        let hoveredNode = null;
+        let idCounter = 1;
+        let bgImageBase64 = null;
+        
+        // Estado de Calibración
+        let pxPerMeter = null;
+        let calibPoints = [];
+        let measurePoints = [];
+        let mousePos = {x: 0, y: 0};
+
+        let globalCircuits = [];
+        const CIRCUIT_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#f368e0', '#10ac84', '#00d2d3', '#ff9f43'];
+
+        const VOLTAGE = 120;
+        
+        // Referencias DOM
+        const workspace = document.getElementById('workspace');
+        const wireLayer = document.getElementById('wire-layer');
+        const canvasBg = document.getElementById('canvas-bg');
+        const propPanel = document.getElementById('properties-panel');
+        const propPowerGroup = document.getElementById('prop-power-group');
+        const propOutletGroup = document.getElementById('prop-outlet-group');
+        const propOutletType = document.getElementById('prop-outlet-type');
+        const propBoardGroup = document.getElementById('prop-board-group');
+        const propWireGroup = document.getElementById('prop-wire-group');
+        const circuitsContainer = document.getElementById('circuits-container');
+        const tooltip = document.getElementById('tooltip');
+
+        // --- FUNCIONES PRINCIPALES ---
+
+        function loadPlan(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                bgImageBase64 = e.target.result;
+                canvasBg.style.backgroundImage = `url(${bgImageBase64})`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (mode === 'wire' && wireStartNodeId) {
+                    wireStartNodeId = null;
+                    tempWirePoints = [];
+                    renderWorkspace();
+                } else if (mode === 'calibrate') {
+                    calibPoints = [];
+                    tooltip.style.display = 'none';
+                    setMode('select');
+                } else if (mode === 'measure') {
+                    measurePoints = [];
+                    tooltip.style.display = 'none';
+                    setMode('select');
+                }
+            }
+        });
+
+        function setMode(newMode) {
+            mode = newMode;
+            wireStartNodeId = null;
+            tempWirePoints = [];
+            calibPoints = [];
+            measurePoints = [];
+            tooltip.style.display = 'none';
+            
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            if(document.getElementById(`btn-${newMode}`)) {
+                document.getElementById(`btn-${newMode}`).classList.add('active');
+            }
+            
+            if (mode === 'wire') workspace.style.cursor = 'crosshair';
+            else if (mode === 'erase') workspace.style.cursor = 'not-allowed';
+            else if (mode === 'calibrate') {
+                workspace.style.cursor = 'crosshair';
+                tooltip.style.display = 'block';
+                tooltip.innerText = "Haz clic en el primer punto de referencia...";
+            }
+            else if (mode === 'measure') {
+                if (!pxPerMeter) {
+                    alert("¡Atención! Debes calibrar la escala primero antes de medir.");
+                    setTimeout(() => setMode('select'), 0);
+                    return;
+                }
+                workspace.style.cursor = 'crosshair';
+                tooltip.style.display = 'block';
+                tooltip.innerText = "Haz clic en el punto de inicio para medir...";
+            }
+            else workspace.style.cursor = 'default';
+            
+            renderWorkspace();
+        }
+
+        function addComponent(type) {
+            const rect = workspace.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            let power = 0;
+            let img = '';
+            let label = '';
+            let circuits = 0;
+            let rounded = true;
+            let voltage = 120;
+            let loadType = 'gen';
+
+            switch(type) {
+                case 'board': power = 0; img = 'simbolos/Tablero.png'; label = 'Tablero'; circuits = 4; rounded = false; break;
+                case 'outlet': power = 180; img = 'simbolos/tomacorriente.png'; label = 'Toma'; voltage = 120; loadType = 'gen'; break;
+                case 'light': power = 60; img = 'simbolos/luminaria.png'; label = 'Luz'; voltage = 120; break;
+                case 'switch': power = 0; img = 'simbolos/Interruptor sencillo.png'; label = 'Int.'; voltage = 120; break;
+                case 'switch3w': power = 0; img = 'simbolos/Interruptor conmutado.png'; label = 'Conmut.'; voltage = 120; break;
+            }
+
+            const node = {
+                id: idCounter++,
+                type: type,
+                x: centerX + (Math.random() * 60 - 30),
+                y: centerY + (Math.random() * 60 - 30),
+                power: power,
+                img: img,
+                label: label,
+                circuits: circuits,
+                rounded: rounded,
+                voltage: voltage,
+                loadType: loadType
+            };
+
+            nodes.push(node);
+            
+            if (mode !== 'select') setMode('select');
+            
+            selectNode(node.id); 
+            analyzeSystem();
+        }
+
+        function renderWorkspace() {
+            const nodeElements = document.querySelectorAll('.node');
+            nodeElements.forEach(el => el.remove());
+
+            wireLayer.innerHTML = '';
+            wires.forEach((wire, index) => {
+                const n1 = nodes.find(n => n.id === wire.from);
+                const n2 = nodes.find(n => n.id === wire.to);
+                
+                if (n1 && n2) {
+                    let color = '#7f8c8d';
+                    let circuit = globalCircuits.find(c => c.wires.includes(wire));
+                    if (circuit) color = circuit.color;
+
+                    const wireGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    wireGroup.classList.add('wire-group');
+
+                    let pointsStr = `${n1.x},${n1.y}`;
+                    let allPoints = [{x: n1.x, y: n1.y}];
+                    if (wire.points && wire.points.length > 0) {
+                        wire.points.forEach(p => {
+                            pointsStr += ` ${p.x},${p.y}`;
+                            allPoints.push({x: p.x, y: p.y});
+                        });
+                    }
+                    pointsStr += ` ${n2.x},${n2.y}`;
+                    allPoints.push({x: n2.x, y: n2.y});
+
+                    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                    polyline.setAttribute('points', pointsStr);
+                    polyline.classList.add('wire');
+                    polyline.style.fill = 'none';
+                    polyline.style.stroke = color;
+                    polyline.style.strokeWidth = (circuit ? '4' : '3');
+                    
+                    if (wire.routing === 'piso') {
+                        polyline.style.strokeDasharray = '8, 8';
+                    } else if (wire.routing === 'techo') {
+                        polyline.style.strokeDasharray = '15, 5, 4, 5';
+                    }
+
+                    if (index === selectedWireIndex) {
+                        polyline.style.strokeWidth = '6';
+                        polyline.style.stroke = 'var(--accent)';
+                    }
+                    wireGroup.appendChild(polyline);
+
+                    // Definir conductores y sus símbolos (Fase, Neutro, Tierra)
+                    let phases = wire.phases !== undefined ? wire.phases : 1;
+                    let neutrals = wire.neutrals !== undefined ? wire.neutrals : 1;
+                    let grounds = wire.grounds !== undefined ? wire.grounds : 1;
+                    let totalMarks = phases + neutrals + grounds;
+                    
+                    let markData = [];
+                    let selColor = 'var(--accent)';
+                    for(let i=0; i<phases; i++) markData.push({ color: (index === selectedWireIndex) ? selColor : color, type: 'phase' });
+                    for(let i=0; i<neutrals; i++) markData.push({ color: (index === selectedWireIndex) ? selColor : 'var(--neutral-color)', type: 'neutral' });
+                    for(let i=0; i<grounds; i++) markData.push({ color: (index === selectedWireIndex) ? selColor : 'var(--ground-color)', type: 'ground' });
+
+                    let longestSegment = { p1: allPoints[0], p2: allPoints[1], len: 0 };
+                    for (let j = 0; j < allPoints.length - 1; j++) {
+                        let dx = allPoints[j+1].x - allPoints[j].x;
+                        let dy = allPoints[j+1].y - allPoints[j].y;
+                        let len = Math.sqrt(dx*dx + dy*dy);
+                        if (len > longestSegment.len) {
+                            longestSegment = { p1: allPoints[j], p2: allPoints[j+1], len: len };
+                        }
+                    }
+
+                    let dx = longestSegment.p2.x - longestSegment.p1.x;
+                    let dy = longestSegment.p2.y - longestSegment.p1.y;
+                    let len = longestSegment.len;
+                    
+                    if (len > 0) {
+                        let ux = dx / len;
+                        let uy = dy / len;
+                        let px = -uy;
+                        let py = ux;
+                        let mx = (longestSegment.p1.x + longestSegment.p2.x) / 2;
+                        let my = (longestSegment.p1.y + longestSegment.p2.y) / 2;
+                        let spacing = 8; 
+                        let markLen = 16; 
+                        
+                        for (let i = 0; i < totalMarks; i++) {
+                            let offset = (i - (totalMarks - 1) / 2) * spacing;
+                            let cx = mx + ux * offset;
+                            let cy = my + uy * offset;
+                            
+                            let p1x = cx + px * markLen/2;
+                            let p1y = cy + py * markLen/2;
+                            let p2x = cx - px * markLen/2;
+                            let p2y = cy - py * markLen/2;
+
+                            // 1. Línea base transversal (Palito)
+                            const mark = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                            mark.setAttribute('x1', p1x);
+                            mark.setAttribute('y1', p1y);
+                            mark.setAttribute('x2', p2x);
+                            mark.setAttribute('y2', p2y);
+                            mark.classList.add('wire-mark');
+                            mark.style.stroke = markData[i].color;
+                            mark.style.strokeWidth = '3';
+                            mark.style.pointerEvents = 'none';
+                            wireGroup.appendChild(mark);
+
+                            // 2. Símbolo de Tierra (Forma de T)
+                            if (markData[i].type === 'ground') {
+                                const cross = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                                cross.setAttribute('x1', p1x + ux * 5);
+                                cross.setAttribute('y1', p1y + uy * 5);
+                                cross.setAttribute('x2', p1x - ux * 5);
+                                cross.setAttribute('y2', p1y - uy * 5);
+                                cross.classList.add('wire-mark');
+                                cross.style.stroke = markData[i].color;
+                                cross.style.strokeWidth = '3';
+                                cross.style.pointerEvents = 'none';
+                                wireGroup.appendChild(cross);
+                            }
+                            // 3. Símbolo de Neutro (Forma de Bombón / P)
+                            else if (markData[i].type === 'neutral') {
+                                const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                                dot.setAttribute('cx', p1x);
+                                dot.setAttribute('cy', p1y);
+                                dot.setAttribute('r', '3.5');
+                                dot.style.fill = markData[i].color;
+                                dot.style.pointerEvents = 'none';
+                                wireGroup.appendChild(dot);
+                            }
+                        }
+                    }
+                    
+                    wireGroup.onclick = (e) => {
+                        e.stopPropagation();
+                        if (mode === 'erase') {
+                            wires.splice(index, 1);
+                            selectedWireIndex = null;
+                            analyzeSystem();
+                        } else if (mode === 'select') {
+                            selectWire(index);
+                        }
+                    };
+                    wireLayer.appendChild(wireGroup);
+                }
+            });
+
+            // Dibujar línea temporal de calibración si corresponde
+            if (mode === 'calibrate' && calibPoints.length === 1) {
+                const tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                tempLine.setAttribute('x1', calibPoints[0].x);
+                tempLine.setAttribute('y1', calibPoints[0].y);
+                tempLine.setAttribute('x2', mousePos.x);
+                tempLine.setAttribute('y2', mousePos.y);
+                tempLine.style.stroke = 'var(--danger)';
+                tempLine.style.strokeWidth = '3';
+                tempLine.style.strokeDasharray = '5,5';
+                wireLayer.appendChild(tempLine);
+            }
+
+            // Dibujar línea temporal de medición si corresponde
+            if (mode === 'measure' && measurePoints.length === 1) {
+                const measureLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                measureLine.setAttribute('x1', measurePoints[0].x);
+                measureLine.setAttribute('y1', measurePoints[0].y);
+                measureLine.setAttribute('x2', mousePos.x);
+                measureLine.setAttribute('y2', mousePos.y);
+                measureLine.style.stroke = '#3498db';
+                measureLine.style.strokeWidth = '2';
+                measureLine.style.strokeDasharray = '4,4';
+                wireLayer.appendChild(measureLine);
+            }
+
+            // Dibujar línea temporal de cableado
+            if (mode === 'wire' && wireStartNodeId) {
+                const nStart = nodes.find(n => n.id === wireStartNodeId);
+                if (nStart) {
+                    let pts = `${nStart.x},${nStart.y}`;
+                    tempWirePoints.forEach(p => pts += ` ${p.x},${p.y}`);
+                    pts += ` ${mousePos.x},${mousePos.y}`;
+
+                    const tempPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                    tempPolyline.setAttribute('points', pts);
+                    tempPolyline.style.fill = 'none';
+                    tempPolyline.style.stroke = 'var(--danger)';
+                    tempPolyline.style.strokeWidth = '3';
+                    tempPolyline.style.strokeDasharray = '5,5';
+                    wireLayer.appendChild(tempPolyline);
+                }
+            }
+
+            nodes.forEach(node => {
+                const el = document.createElement('div');
+                el.classList.add('node');
+                if(node.rounded) el.classList.add('rounded');
+                
+                if (node.id === selectedNodeId) el.classList.add('selected');
+                if (node.id === wireStartNodeId) el.classList.add('wiring');
+                
+                el.style.left = `${node.x}px`;
+                el.style.top = `${node.y}px`;
+                
+                if (node.type !== 'board') {
+                    let circuit = globalCircuits.find(c => c.nodes.includes(node));
+                    if (circuit) {
+                        el.style.borderColor = circuit.color;
+                        el.style.borderWidth = '3px';
+                    }
+                } else {
+                    if ((node.usedSlots || 0) > node.circuits) {
+                        el.style.borderColor = 'var(--danger)';
+                        el.style.boxShadow = '0 0 15px rgba(231,76,60,0.8)';
+                    }
+                }
+
+                let extraInfo = '';
+                if(node.type === 'board') extraInfo = `<br>${node.usedSlots || 0}/${node.circuits} Vías`;
+                else if (node.power > 0) extraInfo = `<br>${node.power}W`;
+
+                el.innerHTML = `<img src="${node.img}" style="width: 26px; height: 26px; object-fit: contain; pointer-events: none;" alt="${node.label}">
+                                <div class="label">${node.label} ${extraInfo}</div>`;
+                
+                el.onmousedown = (e) => { e.stopPropagation(); handleNodeMouseDown(e, node.id); };
+                el.onclick = (e) => { e.stopPropagation(); handleNodeClick(e, node.id); };
+                
+                workspace.appendChild(el);
+            });
+        }
+
+        // --- INTERACCIONES ---
+
+        workspace.onmousemove = (e) => {
+            const rect = workspace.getBoundingClientRect();
+            mousePos = {x: e.clientX - rect.left, y: e.clientY - rect.top};
+            
+            let newHoveredNode = null;
+            for (const node of nodes) {
+                if (Math.hypot(node.x - mousePos.x, node.y - mousePos.y) < 25) {
+                    newHoveredNode = node;
+                    break;
+                }
+            }
+            if (newHoveredNode !== hoveredNode) {
+                hoveredNode = newHoveredNode;
+                if (mode !== 'calibrate' && mode !== 'wire' && !draggedNode) {
+                    renderWorkspace();
+                }
+            }
+            
+            if (mode === 'calibrate') {
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY + 15) + 'px';
+                if (calibPoints.length === 1) renderWorkspace(); // Para animar la línea
+            }
+
+            if (mode === 'measure') {
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY + 15) + 'px';
+                if (measurePoints.length === 1 && pxPerMeter) {
+                    let dx = mousePos.x - measurePoints[0].x;
+                    let dy = mousePos.y - measurePoints[0].y;
+                    let pxDist = Math.sqrt(dx*dx + dy*dy);
+                    let mDist = pxDist / pxPerMeter;
+                    tooltip.innerText = `📏 ${mDist.toFixed(2)} m`;
+                    renderWorkspace();
+                }
+            }
+
+            if (draggedNode && mode === 'select') {
+                let newX = mousePos.x;
+                let newY = mousePos.y;
+                
+                newX = Math.max(20, Math.min(newX, rect.width - 20));
+                newY = Math.max(20, Math.min(newY, rect.height - 20));
+
+                draggedNode.x = newX;
+                draggedNode.y = newY;
+                renderWorkspace();
+            }
+
+            if (mode === 'wire' && wireStartNodeId) {
+                renderWorkspace();
+            }
+        };
+
+        workspace.onclick = (e) => {
+            if (e.target === workspace || e.target === wireLayer || e.target === canvasBg) {
+                if (mode === 'select') {
+                    selectedNodeId = null;
+                    selectedWireIndex = null;
+                    propPanel.style.display = 'none';
+                    renderWorkspace();
+                } else if (mode === 'wire') {
+                    if (wireStartNodeId) {
+                        tempWirePoints.push({x: mousePos.x, y: mousePos.y});
+                        renderWorkspace();
+                    }
+                } else if (mode === 'calibrate') {
+                    calibPoints.push({x: mousePos.x, y: mousePos.y});
+                    if (calibPoints.length === 1) {
+                        tooltip.innerText = "Haz clic en el segundo punto (extremo de la pared)...";
+                        renderWorkspace();
+                    } else if (calibPoints.length === 2) {
+                        tooltip.style.display = 'none';
+                        let realDist = prompt("Ingresa la distancia REAL entre estos dos puntos en Metros (ejemplo: 4.5):");
+                        if (realDist && !isNaN(realDist) && realDist > 0) {
+                            let dx = calibPoints[1].x - calibPoints[0].x;
+                            let dy = calibPoints[1].y - calibPoints[0].y;
+                            let pxDist = Math.sqrt(dx*dx + dy*dy);
+                            
+                            if (pxDist > 0) {
+                                pxPerMeter = pxDist / parseFloat(realDist);
+                                alert(`¡Escala calibrada con éxito!\n1 metro real equivale a ${pxPerMeter.toFixed(2)} píxeles en el plano.`);
+                            } else {
+                                alert("Los puntos están demasiado juntos. Inténtalo de nuevo.");
+                            }
+                        } else {
+                            alert("Calibración cancelada. El valor debe ser numérico.");
+                        }
+                        setMode('select');
+                        analyzeSystem(); // Para recalcular longitudes
+                    }
+                } else if (mode === 'measure') {
+                    measurePoints.push({x: mousePos.x, y: mousePos.y});
+                    if (measurePoints.length === 1) {
+                        tooltip.innerText = "Mueve el ratón para ver la distancia, haz clic para terminar...";
+                        renderWorkspace();
+                    } else if (measurePoints.length === 2) {
+                        let dx = measurePoints[1].x - measurePoints[0].x;
+                        let dy = measurePoints[1].y - measurePoints[0].y;
+                        let pxDist = Math.sqrt(dx*dx + dy*dy);
+                        let mDist = pxDist / pxPerMeter;
+                        alert(`📐 Medición: ${mDist.toFixed(2)} metros.`);
+                        measurePoints = []; // Reiniciar para poder medir otra vez
+                        tooltip.innerText = "Haz clic en el punto de inicio para medir...";
+                        renderWorkspace();
+                    }
+                }
+            }
+        };
+
+        function handleNodeMouseDown(e, id) {
+            if (mode !== 'select') return;
+            draggedNode = nodes.find(n => n.id === id);
+            selectNode(id);
+        }
+
+        workspace.onmouseup = () => { draggedNode = null; };
+        workspace.onmouseleave = () => { draggedNode = null; tooltip.style.display = 'none'; hoveredNode = null; renderWorkspace(); };
+
+        function handleNodeClick(e, id) {
+            if (mode === 'erase') {
+                selectedNodeId = id;
+                deleteSelectedElement();
+            } else if (mode === 'select') {
+                selectNode(id);
+            } else if (mode === 'wire') {
+                if (!wireStartNodeId) {
+                    wireStartNodeId = id;
+                    tempWirePoints = [];
+                    renderWorkspace();
+                } else {
+                    if (wireStartNodeId !== id) {
+                        const exists = wires.some(w => 
+                            (w.from === wireStartNodeId && w.to === id) || 
+                            (w.to === wireStartNodeId && w.from === id)
+                        );
+                        if (!exists) {
+                            wires.push({ 
+                                from: wireStartNodeId, 
+                                to: id, 
+                                phases: 1, 
+                                neutrals: 1, 
+                                grounds: 1,
+                                points: [...tempWirePoints],
+                                routing: 'pared'
+                            }); 
+                        }
+                    }
+                    wireStartNodeId = null;
+                    tempWirePoints = [];
+                    analyzeSystem();
+                }
+            }
+        }
+
+        function selectNode(id) {
+            selectedNodeId = id;
+            selectedWireIndex = null;
+            const node = nodes.find(n => n.id === id);
+            if (node) {
+                propPanel.style.display = 'block';
+                document.getElementById('prop-type').value = node.label;
+                
+                propWireGroup.style.display = 'none';
+
+                if (node.type === 'board') {
+                    propPowerGroup.style.display = 'none';
+                    propOutletGroup.style.display = 'none';
+                    propBoardGroup.style.display = 'block';
+                    document.getElementById('prop-circuits').value = node.circuits;
+                } else if (node.type === 'outlet') {
+                    propPowerGroup.style.display = 'block';
+                    propBoardGroup.style.display = 'none';
+                    propOutletGroup.style.display = 'block';
+                    document.getElementById('prop-power').value = node.power;
+                    propOutletType.value = node.loadType || 'custom';
+                } else {
+                    propPowerGroup.style.display = 'block';
+                    propBoardGroup.style.display = 'none';
+                    propOutletGroup.style.display = 'none';
+                    document.getElementById('prop-power').value = node.power;
+                }
+                renderWorkspace();
+            }
+        }
+
+        function selectWire(index) {
+            selectedWireIndex = index;
+            selectedNodeId = null;
+            const wire = wires[index];
+            if (wire) {
+                propPanel.style.display = 'block';
+                document.getElementById('prop-type').value = 'Tramo de Cable / Tubería';
+                
+                propPowerGroup.style.display = 'none';
+                propOutletGroup.style.display = 'none';
+                propBoardGroup.style.display = 'none';
+                propWireGroup.style.display = 'block';
+                
+                document.getElementById('prop-wire-fases').value = wire.phases !== undefined ? wire.phases : 1;
+                document.getElementById('prop-wire-neutros').value = wire.neutrals !== undefined ? wire.neutrals : 1;
+                document.getElementById('prop-wire-tierras').value = wire.grounds !== undefined ? wire.grounds : 1;
+                document.getElementById('prop-wire-routing').value = wire.routing || 'pared';
+
+                // Calcular longitud física basada en la calibración
+                const lenInput = document.getElementById('prop-wire-length');
+                if (pxPerMeter) {
+                    let n1 = nodes.find(n => n.id === wire.from);
+                    let n2 = nodes.find(n => n.id === wire.to);
+                    let totalPx = 0;
+                    let pts = [{x: n1.x, y: n1.y}, ...(wire.points || []), {x: n2.x, y: n2.y}];
+                    for (let i = 0; i < pts.length - 1; i++) {
+                        totalPx += Math.sqrt(Math.pow(pts[i+1].x - pts[i].x, 2) + Math.pow(pts[i+1].y - pts[i].y, 2));
+                    }
+                    let realLen = (totalPx / pxPerMeter).toFixed(2);
+                    lenInput.value = `${realLen} Metros`;
+                } else {
+                    lenInput.value = `¡Escala no calibrada!`;
+                }
+            }
+            renderWorkspace();
+        }
+
+        function updateOutletType() {
+            if (selectedNodeId) {
+                const node = nodes.find(n => n.id === selectedNodeId);
+                if (node && node.type === 'outlet') {
+                    const type = propOutletType.value;
+                    node.loadType = type;
+                    switch(type) {
+                        case 'gen': node.power = 180; node.voltage = 120; node.label = 'Toma'; break;
+                        case 'nevera': node.power = 600; node.voltage = 120; node.label = 'Nevera'; break;
+                        case 'lavadora': node.power = 1200; node.voltage = 120; node.label = 'Lavadora'; break;
+                        case 'fogon': node.power = 4000; node.voltage = 240; node.label = 'Fogón'; break;
+                        case 'ev': node.power = 7200; node.voltage = 240; node.label = 'Carg. EV'; break;
+                    }
+                    document.getElementById('prop-power').value = node.power;
+                    document.getElementById('prop-type').value = node.label;
+                    analyzeSystem();
+                }
+            }
+        }
+
+        function updateSelectedNode() {
+            if (selectedNodeId) {
+                const node = nodes.find(n => n.id === selectedNodeId);
+                if (node.type === 'board') {
+                    const newCircuits = parseInt(document.getElementById('prop-circuits').value);
+                    if (!isNaN(newCircuits) && newCircuits > 0) node.circuits = newCircuits;
+                } else {
+                    const newPower = parseFloat(document.getElementById('prop-power').value);
+                    if (!isNaN(newPower) && newPower >= 0) {
+                        node.power = newPower;
+                        if(node.type === 'outlet') {
+                            node.loadType = 'custom';
+                            propOutletType.value = 'custom';
+                        }
+                    }
+                }
+                analyzeSystem();
+            }
+        }
+
+        function updateSelectedWire() {
+            if (selectedWireIndex !== null) {
+                let p = parseInt(document.getElementById('prop-wire-fases').value);
+                let n = parseInt(document.getElementById('prop-wire-neutros').value);
+                let t = parseInt(document.getElementById('prop-wire-tierras').value);
+                let routing = document.getElementById('prop-wire-routing').value;
+                
+                // Evitar números negativos o vacíos
+                if(isNaN(p) || p < 0) p = 0;
+                if(isNaN(n) || n < 0) n = 0;
+                if(isNaN(t) || t < 0) t = 0;
+
+                wires[selectedWireIndex].phases = p;
+                wires[selectedWireIndex].neutrals = n;
+                wires[selectedWireIndex].grounds = t;
+                wires[selectedWireIndex].routing = routing;
+                
+                renderWorkspace();
+            }
+        }
+
+        function deleteSelectedElement() {
+            if (selectedNodeId !== null) {
+                nodes = nodes.filter(n => n.id !== selectedNodeId);
+                wires = wires.filter(w => w.from !== selectedNodeId && w.to !== selectedNodeId);
+                selectedNodeId = null;
+            } else if (selectedWireIndex !== null) {
+                wires.splice(selectedWireIndex, 1);
+                selectedWireIndex = null;
+            }
+            propPanel.style.display = 'none';
+            analyzeSystem();
+        }
+
+        function clearWorkspace() {
+            if (confirm("¿Estás seguro que deseas eliminar todo el diseño y el plano?")) {
+                nodes = [];
+                wires = [];
+                idCounter = 1;
+                selectedNodeId = null;
+                selectedWireIndex = null;
+                wireStartNodeId = null;
+                tempWirePoints = [];
+                bgImageBase64 = null;
+                pxPerMeter = null; // Reiniciar calibración
+                canvasBg.style.backgroundImage = 'none';
+                document.getElementById('file-input').value = '';
+                propPanel.style.display = 'none';
+                analyzeSystem();
+            }
+        }
+
+        // --- ALGORITMOS DE CÁLCULO ELÉCTRICO ---
+
+        function analyzeSystem() {
+            globalCircuits = [];
+            let visited = new Set();
+            let circuitIndex = 0;
+            
+            nodes.filter(n => n.type === 'board').forEach(b => b.usedSlots = 0);
+
+            let adjList = {};
+            nodes.forEach(n => adjList[n.id] = []);
+            wires.forEach(w => {
+                adjList[w.from].push({to: w.to, wire: w});
+                adjList[w.to].push({to: w.from, wire: w});
+            });
+
+            nodes.forEach(node => {
+                if (node.type === 'board') return;
+
+                if (!visited.has(node.id)) {
+                    let clusterNodes = [];
+                    let clusterWires = new Set();
+                    let connectedBoards = new Set();
+                    let queue = [node.id];
+                    visited.add(node.id);
+
+                    while (queue.length > 0) {
+                        let currentId = queue.shift();
+                        let currentNode = nodes.find(n => n.id === currentId);
+                        clusterNodes.push(currentNode);
+
+                        adjList[currentId].forEach(edge => {
+                            clusterWires.add(edge.wire);
+                            let neighborNode = nodes.find(n => n.id === edge.to);
+
+                            if (neighborNode.type === 'board') {
+                                connectedBoards.add(neighborNode); 
+                            } else if (!visited.has(neighborNode.id)) {
+                                visited.add(neighborNode.id);
+                                queue.push(neighborNode.id);
+                            }
+                        });
+                    }
+                    
+                    if (clusterNodes.length > 1 || (clusterNodes[0] && clusterNodes[0].power > 0)) {
+                        const has120V = clusterNodes.some(n => n.voltage === 120 && n.power > 0);
+                        const has240V = clusterNodes.some(n => n.voltage === 240 && n.power > 0);
+                        const isMixedVoltage = has120V && has240V;
+                        const hasEV = clusterNodes.some(n => n.loadType === 'ev');
+
+                        let totalPower = clusterNodes.reduce((sum, n) => sum + n.power, 0);
+                        let totalCurrent = clusterNodes.reduce((sum, n) => {
+                            let v = n.voltage || 120;
+                            return sum + (n.power / v);
+                        }, 0);
+
+                        if (hasEV) totalCurrent *= 1.25;
+
+                        let slotsNeeded = 1;
+                        if (has240V) slotsNeeded = 2;
+
+                        let boardsArr = Array.from(connectedBoards);
+                        let primaryBoard = boardsArr.length > 0 ? boardsArr[0] : null;
+
+                        if (primaryBoard) {
+                            primaryBoard.usedSlots += slotsNeeded;
+                        }
+
+                        // Calcular longitud total del circuito y Caída de Tensión
+                        let maxPxDistance = 0;
+                        if (primaryBoard) {
+                            let distances = new Map();
+                            distances.set(primaryBoard.id, 0);
+                            let queueDist = [primaryBoard.id];
+                            while(queueDist.length > 0) {
+                                let currId = queueDist.shift();
+                                let d = distances.get(currId);
+                                clusterWires.forEach(w => {
+                                    if(w.from === currId || w.to === currId) {
+                                        let nextId = w.from === currId ? w.to : w.from;
+                                        if(!distances.has(nextId)) {
+                                            let wLen = 0;
+                                            let n1 = nodes.find(n => n.id === w.from);
+                                            let n2 = nodes.find(n => n.id === w.to);
+                                            let pts = [{x: n1.x, y: n1.y}, ...(w.points || []), {x: n2.x, y: n2.y}];
+                                            for(let i=0; i<pts.length-1; i++){
+                                                wLen += Math.hypot(pts[i+1].x-pts[i].x, pts[i+1].y-pts[i].y);
+                                            }
+                                            let nextD = d + wLen;
+                                            distances.set(nextId, nextD);
+                                            queueDist.push(nextId);
+                                        }
+                                    }
+                                });
+                            }
+                            distances.forEach(val => { if(val > maxPxDistance) maxPxDistance = val; });
+                        }
+
+                        let totalPxLength = 0;
+                        clusterWires.forEach(w => {
+                            let n1 = nodes.find(n => n.id === w.from);
+                            let n2 = nodes.find(n => n.id === w.to);
+                            if(n1 && n2) {
+                                let pts = [{x: n1.x, y: n1.y}, ...(w.points || []), {x: n2.x, y: n2.y}];
+                                for (let i = 0; i < pts.length - 1; i++) {
+                                    totalPxLength += Math.hypot(pts[i+1].x-pts[i].x, pts[i+1].y-pts[i].y);
+                                }
+                            }
+                        });
+                        let circuitMeters = pxPerMeter ? (totalPxLength / pxPerMeter) : 0;
+                        let maxCircuitMeters = pxPerMeter ? (maxPxDistance / pxPerMeter) + 3 : 3; // +3m concesión vertical
+                        
+                        // Cálculo de Caída de Tensión
+                        let awgStr = getAWG(totalCurrent);
+                        let rKm = 8.28; // AWG 14 default
+                        if(awgStr.includes('12')) rKm = 5.21;
+                        if(awgStr.includes('10')) rKm = 3.28;
+                        if(awgStr.includes('8')) rKm = 2.06;
+                        if(awgStr.includes('6')) rKm = 1.29;
+                        if(awgStr.includes('4')) rKm = 0.81;
+                        
+                        let voltageNom = has240V ? 240 : 120;
+                        let vDrop = (2 * maxCircuitMeters * totalCurrent * rKm) / 1000;
+                        let vDropPercent = (vDrop / voltageNom) * 100;
+                        
+                        let awgNum = parseInt(awgStr.split(' ')[0]);
+
+                        globalCircuits.push({
+                            id: circuitIndex + 1,
+                            color: CIRCUIT_COLORS[circuitIndex % CIRCUIT_COLORS.length],
+                            nodes: clusterNodes,
+                            wires: Array.from(clusterWires),
+                            board: primaryBoard,
+                            power: totalPower,
+                            current: totalCurrent,
+                            has120V,
+                            has240V,
+                            isMixedVoltage,
+                            hasEV,
+                            slotsNeeded,
+                            totalMeters: circuitMeters,
+                            vDropPercent,
+                            maxCircuitMeters,
+                            awg: isNaN(awgNum) ? 14 : awgNum
+                        });
+                        circuitIndex++;
+                    }
+                }
+            });
+
+            renderCircuitsData();
+            renderWorkspace();
+        }
+
+        function getAWG(current) {
+            if (current === 0) return "N/A";
+            if (current <= 15) return "14 AWG Cu";
+            if (current <= 20) return "12 AWG Cu";
+            if (current <= 30) return "10 AWG Cu";
+            if (current <= 40) return "8 AWG Cu";
+            if (current <= 55) return "6 AWG Cu";
+            if (current <= 70) return "4 AWG Cu";
+            return "¡SOBRECARGA!";
+        }
+
+        function getBreaker(current) {
+            if (current === 0) return 0;
+            if (current <= 15) return 15;
+            if (current <= 20) return 20;
+            if (current <= 30) return 30;
+            if (current <= 40) return 40;
+            if (current <= 50) return 50;
+            if (current <= 60) return 60;
+            if (current <= 70) return 70;
+            return "N/A";
+        }
+
+        function renderCircuitsData() {
+            circuitsContainer.innerHTML = '';
+            
+            let boards = nodes.filter(n => n.type === 'board');
+            boards.forEach(b => {
+                let isOverloaded = (b.usedSlots || 0) > b.circuits;
+                const div = document.createElement('div');
+                div.classList.add('circuit-card');
+                if (isOverloaded) div.classList.add('danger');
+                
+                div.innerHTML = `
+                    <strong>🔲 Tablero T${b.id}</strong><br>
+                    Vías Usadas: <b>${b.usedSlots || 0} de ${b.circuits}</b>
+                    ${isOverloaded ? '<br><span style="color:#c0392b; font-size:0.8rem; font-weight:bold;">⚠️ ¡Sobrecarga de vías! Aumenta la capacidad en propiedades.</span>' : ''}
+                `;
+                circuitsContainer.appendChild(div);
+            });
+
+            if (globalCircuits.length === 0) {
+                if(boards.length === 0 && nodes.length > 0) {
+                    circuitsContainer.innerHTML += '<p style="font-size:0.85rem; color:#7f8c8d; text-align: center; margin-top: 20px;">Agrega un Tablero para comenzar a conectar.</p>';
+                }
+                return;
+            }
+
+            globalCircuits.forEach((c) => {
+                let awg = getAWG(c.current);
+                let breaker = getBreaker(c.current);
+                
+                let maxAllowed = c.has240V ? 50 : 20;
+                let isDanger = c.current > maxAllowed; 
+                let isSuccess = c.board !== null;
+
+                const div = document.createElement('div');
+                div.classList.add('circuit-card');
+                if (isDanger || c.isMixedVoltage) div.classList.add('danger');
+                else if (isSuccess) div.classList.add('success');
+
+                let colorDot = `<span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:${c.color}; margin-right:5px; vertical-align:middle; border:1px solid #333;"></span>`;
+                let title = isSuccess ? `${colorDot} Ramal del Tablero T${c.board.id} (C-${c.id})` : `${colorDot} ⚠️ Circuito Flotante ${c.id}`;
+                
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
+                        <strong>${title}</strong>
+                    </div>
+                    <hr style="border:0; border-top:1px solid #ddd; margin-bottom:5px;">
+                    Carga Total: <b>${c.power} W</b><br>
+                    Voltaje: <b>${c.has240V ? (c.has120V ? '¡MEZCLADO!' : '240V bifásico') : '120V monofásico'}</b><br>
+                    Corriente Diseño: <b>${c.current.toFixed(2)} A</b> ${c.hasEV ? '(+25% EV)' : ''}<br>
+                    Ocupa en Tablero: <b>${c.slotsNeeded} Vía(s)</b><br>
+                    Breaker Requerido: <b>${breaker} A</b> ${c.has240V && !c.isMixedVoltage ? 'Bipolar' : 'Monopolar'}<br>
+                    Conductor Mínimo: <b>${awg}</b><br>
+                    Caída de Tensión (Dist. Max): <b>${c.vDropPercent.toFixed(2)}%</b> ${c.vDropPercent > 3 ? '<span style="color:#c0392b; font-weight:bold;">⚠️ (>3% RETIE)</span>' : '✅'}<br>
+                    ${pxPerMeter ? `<span style="color:var(--primary); font-weight:bold;">Longitud Tubería: ~${c.totalMeters.toFixed(1)} Metros</span>` : '<span style="color:#7f8c8d; font-size:0.75rem;">(Calibre la escala para ver metros)</span>'}
+                    ${c.isMixedVoltage ? '<div style="margin-top:8px; font-size:0.8rem; color:#c0392b; font-weight:bold;">⚠️ ERROR RETIE: No mezclar cargas de 120V y 240V.</div>' : ''}
+                    ${isDanger && !c.isMixedVoltage ? `<div style="margin-top:8px; font-size:0.8rem; color:#c0392b; font-weight:bold;">⚠️ Excede ${maxAllowed}A. Cree un circuito dedicado.</div>` : ''}
+                    ${!isSuccess && c.power > 0 ? '<div style="margin-top:4px; font-size:0.8rem; color:#d35400;">⚠️ REGLA: Conecte este circuito a un Tablero.</div>' : ''}
+                `;
+                circuitsContainer.appendChild(div);
+            });
+        }
+
+        // --- SISTEMAS DE EXPORTACIÓN ---
+
+        function exportCSV() {
+            if (globalCircuits.length === 0) {
+                alert("No hay circuitos calculados para exportar.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "ID Circuito,Origen,Voltaje (V),Corriente Diseno (A),Vias (Polos),Breaker (A),Cable Minimo (AWG),Caida de Tension (%),Potencia Total (W), Tuberia Estimada (Metros)\n";
+
+            globalCircuits.forEach(c => {
+                let isSuccess = c.board !== null;
+                let title = isSuccess ? `Tablero T${c.board.id} (C-${c.id})` : `Circuito Flotante ${c.id}`;
+                let awg = getAWG(c.current).replace(" Cu", ""); 
+                let breaker = getBreaker(c.current);
+                let voltage = c.has240V ? "240V" : "120V";
+                if (c.isMixedVoltage) voltage = "MEZCLADO (ERROR)";
+                let meters = pxPerMeter ? c.totalMeters.toFixed(2) : "No Calibrado";
+
+                csvContent += `C-${c.id},${title},${voltage},${c.current.toFixed(2)},${c.slotsNeeded},${breaker},${awg},${c.vDropPercent.toFixed(2)}%,${c.power},${meters}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "Cuadro_de_Cargas_RETIE.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportImage() {
+            const canvas = document.createElement('canvas');
+            const rect = workspace.getBoundingClientRect();
+            const legendWidth = 320;
+            canvas.width = rect.width + legendWidth;
+            canvas.height = Math.max(rect.height, 600);
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw separator line
+            ctx.beginPath();
+            ctx.moveTo(rect.width, 0);
+            ctx.lineTo(rect.width, canvas.height);
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            if (bgImageBase64) {
+                const img = new Image();
+                img.onload = async () => {
+                    ctx.globalAlpha = 0.4;
+                    let scale = Math.min(rect.width / img.width, rect.height / img.height);
+                    let x = (rect.width / 2) - (img.width / 2) * scale;
+                    let y = (rect.height / 2) - (img.height / 2) * scale;
+                    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                    ctx.globalAlpha = 1.0;
+                    await drawOverlay(canvas, ctx);
+                    await drawLegend(ctx, rect.width, legendWidth, canvas.height);
+                    triggerDownload(canvas);
+                };
+                img.src = bgImageBase64;
+            } else {
+                drawOverlay(canvas, ctx).then(async () => {
+                    await drawLegend(ctx, rect.width, legendWidth, canvas.height);
+                    triggerDownload(canvas);
+                });
+            }
+        }
+
+        function triggerDownload(canvas) {
+            const link = document.createElement('a');
+            link.download = 'Plano_Instalacion_Electrica.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function loadImage(src) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null); 
+                if (src.includes('Tablero.png')) src = SYMBOLS_B64.board;
+                else if (src.includes('tomacorriente.png')) src = SYMBOLS_B64.outlet;
+                else if (src.includes('luminaria.png')) src = SYMBOLS_B64.light;
+                else if (src.includes('Interruptor sencillo.png')) src = SYMBOLS_B64.switch;
+                else if (src.includes('Interruptor conmutado.png')) src = SYMBOLS_B64.switch3w;
+                img.src = src;
+            });
+        }
+
+        async function drawLegend(ctx, startX, width, height) {
+            let pad = 20;
+            let currentY = pad;
+
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('CUADRO DE CONVENCIONES', startX + width / 2, currentY);
+            currentY += 40;
+
+            let usedTypes = new Set();
+            let usedRoutings = new Set();
+            let usedConductors = new Set();
+            
+            nodes.forEach(n => usedTypes.add(n.type));
+            wires.forEach(w => {
+                usedRoutings.add(w.routing || 'pared');
+                if (w.phases > 0) usedConductors.add('phase');
+                if (w.neutrals > 0) usedConductors.add('neutral');
+                if (w.grounds > 0) usedConductors.add('ground');
+            });
+
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.font = '13px Arial';
+
+            const drawRow = async (label, drawIconCallback) => {
+                if (currentY > height - 40) return; 
+                ctx.strokeStyle = '#eee';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(startX + pad, currentY, width - pad*2, 40);
+                
+                ctx.fillStyle = '#333';
+                ctx.fillText(label, startX + pad + 50, currentY + 20);
+                
+                ctx.save();
+                ctx.translate(startX + pad + 25, currentY + 20);
+                await drawIconCallback(ctx);
+                ctx.restore();
+
+                currentY += 40;
+            };
+
+            const compDefs = [
+                { type: 'board', label: 'Tablero de Distribución', img: 'simbolos/Tablero.png' },
+                { type: 'outlet', label: 'Tomacorriente', img: 'simbolos/tomacorriente.png' },
+                { type: 'light', label: 'Luminaria', img: 'simbolos/luminaria.png' },
+                { type: 'switch', label: 'Interruptor Simple', img: 'simbolos/Interruptor sencillo.png' },
+                { type: 'switch3w', label: 'Conmutador (3 Vías)', img: 'simbolos/Interruptor conmutado.png' }
+            ];
+
+            for (let def of compDefs) {
+                if (usedTypes.has(def.type)) {
+                    await drawRow(def.label, async (c) => {
+                        const img = await loadImage(def.img);
+                        if(img) c.drawImage(img, -12, -12, 24, 24);
+                    });
+                }
+            }
+
+            if (usedRoutings.size > 0) currentY += 10;
+            
+            if (usedRoutings.has('pared')) {
+                await drawRow('Tubería por Pared (Continua)', (c) => {
+                    c.beginPath(); c.moveTo(-15, 0); c.lineTo(15, 0); 
+                    c.strokeStyle = '#2c3e50'; c.lineWidth = 3; c.setLineDash([]); c.stroke();
+                });
+            }
+            if (usedRoutings.has('piso')) {
+                await drawRow('Tubería por Piso (Discontinua)', (c) => {
+                    c.beginPath(); c.moveTo(-15, 0); c.lineTo(15, 0); 
+                    c.strokeStyle = '#2c3e50'; c.lineWidth = 3; c.setLineDash([6,6]); c.stroke();
+                });
+            }
+            if (usedRoutings.has('techo')) {
+                await drawRow('Tubería por Techo (Mixta)', (c) => {
+                    c.beginPath(); c.moveTo(-15, 0); c.lineTo(15, 0); 
+                    c.strokeStyle = '#2c3e50'; c.lineWidth = 3; c.setLineDash([12,4,3,4]); c.stroke();
+                });
+            }
+
+            if (usedConductors.size > 0) currentY += 10;
+
+            if (usedConductors.has('phase')) {
+                await drawRow('Conductor Fase', (c) => {
+                    c.beginPath(); c.moveTo(-10, 0); c.lineTo(10, 0); 
+                    c.strokeStyle = '#2c3e50'; c.lineWidth = 3; c.stroke();
+                    c.beginPath(); c.moveTo(0, -8); c.lineTo(0, 8); c.stroke();
+                });
+            }
+            if (usedConductors.has('neutral')) {
+                await drawRow('Conductor Neutro', (c) => {
+                    c.beginPath(); c.moveTo(-10, 0); c.lineTo(10, 0); 
+                    c.strokeStyle = '#2c3e50'; c.lineWidth = 3; c.stroke();
+                    c.beginPath(); c.moveTo(0, -8); c.lineTo(0, 8); 
+                    c.strokeStyle = '#3498db'; c.stroke();
+                    c.beginPath(); c.arc(0, -8, 2.5, 0, 2*Math.PI); c.fillStyle='#3498db'; c.fill();
+                });
+            }
+            if (usedConductors.has('ground')) {
+                await drawRow('Conductor Tierra', (c) => {
+                    c.beginPath(); c.moveTo(-10, 0); c.lineTo(10, 0); 
+                    c.strokeStyle = '#2c3e50'; c.lineWidth = 3; c.stroke();
+                    c.beginPath(); c.moveTo(0, -8); c.lineTo(0, 8); 
+                    c.strokeStyle = '#2ecc71'; c.stroke();
+                    c.beginPath(); c.moveTo(-4, 8); c.lineTo(4, 8); c.stroke();
+                });
+            }
+        }
+
+        async function drawOverlay(canvas, ctx) {
+            wires.forEach((wire) => {
+                const n1 = nodes.find(n => n.id === wire.from);
+                const n2 = nodes.find(n => n.id === wire.to);
+                if (n1 && n2) {
+                    let color = '#7f8c8d';
+                    let circuit = globalCircuits.find(c => c.wires.includes(wire));
+                    if (circuit) color = circuit.color;
+
+                    let allPoints = [{x: n1.x, y: n1.y}, ...(wire.points || []), {x: n2.x, y: n2.y}];
+
+                    ctx.beginPath();
+                    ctx.moveTo(allPoints[0].x, allPoints[0].y);
+                    for (let j = 1; j < allPoints.length; j++) {
+                        ctx.lineTo(allPoints[j].x, allPoints[j].y);
+                    }
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = circuit ? 4 : 3;
+                    
+                    if (wire.routing === 'piso') {
+                        ctx.setLineDash([8, 8]);
+                    } else if (wire.routing === 'techo') {
+                        ctx.setLineDash([15, 5, 4, 5]);
+                    } else {
+                        ctx.setLineDash([]);
+                    }
+                    
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Marcas de conductores para la exportación de imagen
+                    let phases = wire.phases !== undefined ? wire.phases : 1;
+                    let neutrals = wire.neutrals !== undefined ? wire.neutrals : 1;
+                    let grounds = wire.grounds !== undefined ? wire.grounds : 1;
+                    let totalMarks = phases + neutrals + grounds;
+                    
+                    let markData = [];
+                    for(let i=0; i<phases; i++) markData.push({ color: color, type: 'phase' });
+                    for(let i=0; i<neutrals; i++) markData.push({ color: '#3498db', type: 'neutral' });
+                    for(let i=0; i<grounds; i++) markData.push({ color: '#2ecc71', type: 'ground' });
+
+                    let longestSegment = { p1: allPoints[0], p2: allPoints[1], len: 0 };
+                    for (let j = 0; j < allPoints.length - 1; j++) {
+                        let dx = allPoints[j+1].x - allPoints[j].x;
+                        let dy = allPoints[j+1].y - allPoints[j].y;
+                        let len = Math.sqrt(dx*dx + dy*dy);
+                        if (len > longestSegment.len) {
+                            longestSegment = { p1: allPoints[j], p2: allPoints[j+1], len: len };
+                        }
+                    }
+
+                    let dx = longestSegment.p2.x - longestSegment.p1.x;
+                    let dy = longestSegment.p2.y - longestSegment.p1.y;
+                    let len = longestSegment.len;
+                    if (len > 0) {
+                        let ux = dx / len;
+                        let uy = dy / len;
+                        let px = -uy;
+                        let py = ux;
+                        let mx = (longestSegment.p1.x + longestSegment.p2.x) / 2;
+                        let my = (longestSegment.p1.y + longestSegment.p2.y) / 2;
+                        let spacing = 8;
+                        let markLen = 16;
+                        
+                        for (let i = 0; i < totalMarks; i++) {
+                            let offset = (i - (totalMarks - 1) / 2) * spacing;
+                            let cx = mx + ux * offset;
+                            let cy = my + uy * offset;
+                            
+                            let p1x = cx + px * markLen/2;
+                            let p1y = cy + py * markLen/2;
+                            let p2x = cx - px * markLen/2;
+                            let p2y = cy - py * markLen/2;
+
+                            // 1. Línea Base
+                            ctx.beginPath();
+                            ctx.moveTo(p1x, p1y);
+                            ctx.lineTo(p2x, p2y);
+                            ctx.strokeStyle = markData[i].color;
+                            ctx.lineWidth = 3;
+                            ctx.stroke();
+
+                            // 2. Tierra (T)
+                            if (markData[i].type === 'ground') {
+                                ctx.beginPath();
+                                ctx.moveTo(p1x + ux * 5, p1y + uy * 5);
+                                ctx.lineTo(p1x - ux * 5, p1y - uy * 5);
+                                ctx.stroke();
+                            }
+                            // 3. Neutro (P / Bombón)
+                            else if (markData[i].type === 'neutral') {
+                                ctx.beginPath();
+                                ctx.arc(p1x, p1y, 3.5, 0, 2 * Math.PI);
+                                ctx.fillStyle = markData[i].color;
+                                ctx.fill();
+                            }
+                        }
+                    }
+                }
+            });
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            for (const node of nodes) {
+                let color = '#2c3e50';
+                if (node.type !== 'board') {
+                    let circuit = globalCircuits.find(c => c.nodes.includes(node));
+                    if (circuit) color = circuit.color;
+                } else if ((node.usedSlots || 0) > node.circuits) {
+                    color = '#e74c3c';
+                }
+
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                
+                ctx.beginPath();
+                if (node.rounded) {
+                    ctx.arc(node.x, node.y, 22, 0, 2 * Math.PI);
+                } else {
+                    ctx.rect(node.x - 22, node.y - 22, 44, 44);
+                }
+                ctx.fill();
+                ctx.stroke();
+
+                const img = await loadImage(node.img);
+                if (img) {
+                    ctx.drawImage(img, node.x - 14, node.y - 14, 28, 28);
+                } else {
+                    ctx.font = '10px Arial';
+                    ctx.fillStyle = '#000000';
+                    ctx.fillText('Img', node.x, node.y);
+                }
+
+                ctx.font = 'bold 10px Arial';
+                let extraInfo = '';
+                if (node.type === 'board') extraInfo = `${node.usedSlots || 0}/${node.circuits} Vías`;
+                else if (node.power > 0) extraInfo = `${node.power}W`;
+                
+                let labelText = `${node.label} ${extraInfo}`;
+                
+                let textWidth = ctx.measureText(labelText).width;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillRect(node.x - (textWidth/2) - 4, node.y + 25 - 6, textWidth + 8, 12);
+                ctx.strokeStyle = '#ddd';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(node.x - (textWidth/2) - 4, node.y + 25 - 6, textWidth + 8, 12);
+                
+                ctx.fillStyle = '#333333';
+                ctx.fillText(labelText, node.x, node.y + 25);
+            }
+
+            // --- DRAW HOVER TOOLTIP ---
+            if (hoveredNode && mode === 'select' && !draggedNode) {
+                let node = hoveredNode;
+                let circuit = globalCircuits.find(c => c.nodes.includes(node));
+                let circText = circuit ? `Circuito ${circuit.id}` : 'Sin Circuito';
+                if (node.type === 'board') circText = `${node.usedSlots || 0}/${node.circuits} Vías`;
+                
+                let lines = [
+                    `Tipo: ${node.label}`,
+                    `Estado: ${circText}`
+                ];
+                if (node.power > 0) {
+                    lines.push(`Potencia: ${node.power} W`);
+                    lines.push(`Voltaje: ${node.voltage || 120} V`);
+                }
+                
+                ctx.font = '12px Arial';
+                let maxWidth = 0;
+                lines.forEach(l => {
+                    let w = ctx.measureText(l).width;
+                    if (w > maxWidth) maxWidth = w;
+                });
+                
+                let tooltipW = maxWidth + 16;
+                let tooltipH = (lines.length * 16) + 16;
+                let tx = node.x + 15;
+                let ty = node.y - tooltipH - 5;
+                if (tx + tooltipW > canvas.width) tx = node.x - tooltipW - 15;
+                if (ty < 0) ty = node.y + 25;
+                
+                // Draw tooltip box
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(tx, ty, tooltipW, tooltipH, 5);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                lines.forEach((l, i) => {
+                    ctx.fillText(l, tx + 8, ty + 8 + (i * 16));
+                });
+            }
+        }
+
+        // --- SISTEMA DE GUARDADO (LocalStorage) ---
+
+        function saveDesign() {
+            if (nodes.length === 0 && !bgImageBase64) {
+                alert("No hay elementos ni plano para guardar.");
+                return;
+            }
+            
+            try {
+                const data = { nodes, wires, idCounter, bgImageBase64, pxPerMeter };
+                localStorage.setItem('stem-electrical-pro', JSON.stringify(data));
+                
+                const btn = document.querySelector('.btn-save');
+                const originalText = btn.innerText;
+                btn.innerText = "¡Guardado!";
+                setTimeout(() => btn.innerText = originalText, 1500);
+            } catch(e) {
+                alert("Error al guardar. Si cargaste un plano, es posible que el archivo de imagen sea demasiado grande para el almacenamiento local del navegador.");
+            }
+        }
+
+        function loadDesign() {
+            const dataStr = localStorage.getItem('stem-electrical-pro');
+            if (dataStr) {
+                applyDesignData(dataStr);
+            } else {
+                alert('No tienes ningún diseño guardado previamente en el navegador.');
+            }
+        }
+
+        function downloadProject() {
+            if (nodes.length === 0 && !bgImageBase64) {
+                alert("No hay elementos para exportar.");
+                return;
+            }
+            const data = { nodes, wires, idCounter, bgImageBase64, pxPerMeter };
+            const jsonStr = JSON.stringify(data);
+            const blob = new Blob([jsonStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'proyecto_electrico.json';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function uploadProject(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const dataStr = e.target.result;
+                if(applyDesignData(dataStr)) {
+                    alert("Proyecto cargado exitosamente.");
+                }
+                input.value = ""; // Reset input
+            };
+            reader.readAsText(file);
+        }
+
+        function applyDesignData(dataStr) {
+            try {
+                const data = JSON.parse(dataStr);
+                nodes = data.nodes || [];
+                wires = data.wires || [];
+                idCounter = data.idCounter || 1;
+                bgImageBase64 = data.bgImageBase64 || null;
+                pxPerMeter = data.pxPerMeter || null;
+                
+                if (bgImageBase64) {
+                    canvasBg.style.backgroundImage = `url(${bgImageBase64})`;
+                } else {
+                    canvasBg.style.backgroundImage = 'none';
+                }
+                
+                // Retrocompatibilidad con diseños anteriores
+                nodes.forEach(n => {
+                    if (!n.img) {
+                        switch(n.type) {
+                            case 'board': n.img = 'simbolos/Tablero.png'; break;
+                            case 'outlet': n.img = 'simbolos/tomacorriente.png'; break;
+                            case 'light': n.img = 'simbolos/luminaria.png'; break;
+                            case 'switch': n.img = 'simbolos/Interruptor sencillo.png'; break;
+                            case 'switch3w': n.img = 'simbolos/Interruptor conmutado.png'; break;
+                        }
+                    }
+                });
+
+                wires.forEach(w => {
+                    if (w.conductors !== undefined && w.phases === undefined) {
+                        w.phases = w.conductors > 2 ? w.conductors - 2 : 1;
+                        w.neutrals = 1;
+                        w.grounds = w.conductors > 1 ? 1 : 0;
+                        delete w.conductors;
+                    }
+                });
+
+                selectedNodeId = null;
+                selectedWireIndex = null;
+                wireStartNodeId = null;
+                setMode('select');
+                propPanel.style.display = 'none';
+                
+                analyzeSystem();
+                return true;
+            } catch (e) {
+                alert('Hubo un error al intentar cargar el archivo. Asegúrate de que sea un archivo de proyecto válido (.json).');
+                return false;
+            }
+        }
+
+        // --- SISTEMA DE BALANCE DE FASES ---
+
+        function showBalanceModal() {
+            const modal = document.getElementById('balance-modal');
+            const resultsContainer = document.getElementById('balance-results');
+            let html = '';
+
+            let boards = nodes.filter(n => n.type === 'board');
+
+            if(boards.length === 0 || globalCircuits.length === 0) {
+                resultsContainer.innerHTML = '<p style="text-align:center; color:#7f8c8d; margin-top:20px;">No hay tableros o circuitos definidos para balancear.</p>';
+                modal.style.display = 'flex';
+                return;
+            }
+
+            boards.forEach(board => {
+                let boardCircuits = globalCircuits.filter(c => c.board && c.board.id === board.id);
+                if(boardCircuits.length === 0) return;
+
+                let phaseA = 0;
+                let phaseB = 0;
+                let tableRows = '';
+
+                let c240 = boardCircuits.filter(c => c.has240V && !c.isMixedVoltage);
+                let c120 = boardCircuits.filter(c => !c.has240V && !c.isMixedVoltage);
+                let cMixed = boardCircuits.filter(c => c.isMixedVoltage);
+
+                c240.forEach(c => {
+                    let halfPower = c.power / 2;
+                    phaseA += halfPower;
+                    phaseB += halfPower;
+                    tableRows += `<tr><td>C-${c.id}</td><td>240V</td><td>${halfPower.toFixed(1)} W</td><td>${halfPower.toFixed(1)} W</td></tr>`;
+                });
+
+                c120.sort((a, b) => b.power - a.power);
+
+                c120.forEach(c => {
+                    if (phaseA <= phaseB) {
+                        phaseA += c.power;
+                        tableRows += `<tr><td>C-${c.id}</td><td>120V</td><td style="background-color: #eafaf1; font-weight: bold;">${c.power.toFixed(1)} W</td><td>-</td></tr>`;
+                    } else {
+                        phaseB += c.power;
+                        tableRows += `<tr><td>C-${c.id}</td><td>120V</td><td>-</td><td style="background-color: #eafaf1; font-weight: bold;">${c.power.toFixed(1)} W</td></tr>`;
+                    }
+                });
+
+                cMixed.forEach(c => {
+                    tableRows += `<tr style="color: var(--danger); background-color: #fdedec;"><td>C-${c.id}</td><td>ERROR</td><td colspan="2">No balanceable (Mezcla 120/240V)</td></tr>`;
+                });
+
+                let maxPhase = Math.max(phaseA, phaseB);
+                let diff = Math.abs(phaseA - phaseB);
+                let unbalance = maxPhase > 0 ? (diff / maxPhase) * 100 : 0;
+
+                html += `
+                    <h3 style="margin-top: 20px; color: var(--primary); background: #ecf0f1; padding: 10px; border-radius: 4px;">🔲 Tablero de Distribución T${board.id}</h3>
+                    <table class="balance-table">
+                        <thead>
+                            <tr>
+                                <th>Circuito</th>
+                                <th>Voltaje</th>
+                                <th>Fase 1 (W)</th>
+                                <th>Fase 2 (W)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th colspan="2">TOTALES POR FASE</th>
+                                <th>${phaseA.toFixed(1)} W</th>
+                                <th>${phaseB.toFixed(1)} W</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <div style="margin-top: 15px; padding: 12px; border-radius: 4px; background-color: ${unbalance > 10 ? '#fdedec' : '#eafaf1'}; border-left: 5px solid ${unbalance > 10 ? 'var(--danger)' : 'var(--success)'};">
+                        <strong>Diferencia de Carga:</strong> ${diff.toFixed(1)} W<br>
+                        <strong style="color: ${unbalance > 10 ? 'var(--danger)' : 'var(--success)'}; font-size: 1.1rem;">
+                            Porcentaje de Desbalanceo: ${unbalance.toFixed(1)}% 
+                            ${unbalance > 10 ? '⚠️ (Alto. Excede el 10% recomendado. Trate de igualar potencias)' : '✅ (Balance Óptimo)'}
+                        </strong>
+                    </div>
+                `;
+            });
+
+            resultsContainer.innerHTML = html;
+            modal.style.display = 'flex';
+        }
+
+        function closeBalanceModal() {
+            document.getElementById('balance-modal').style.display = 'none';
+        }
+
+        // --- SISTEMA DE AYUDA (Guía de Uso) ---
+        function showHelpModal() {
+            document.getElementById('help-modal').style.display = 'flex';
+        }
+
+        function closeHelpModal() {
+            document.getElementById('help-modal').style.display = 'none';
+        }
+
+        // --- SISTEMA DE MATERIALES Y COSTOS (BOM) ---
+        function showMaterialsModal() {
+            const modal = document.getElementById('materials-modal');
+            const resultsContainer = document.getElementById('materials-results');
+            
+            // Precios Unitarios de Referencia (COP Estimado)
+            const PRICES = {
+                "Tablero de Distribución": 250000,
+                "Tomacorriente (180W)": 15000,
+                "Tomacorriente Especial (240V)": 45000,
+                "Luminaria (60W)": 35000,
+                "Interruptor Simple": 12000,
+                "Conmutador (3 Vías)": 18000,
+                "Caja 5x10 (Empotrar - Tomas/Int)": 2000,
+                "Caja Octogonal (Empotrar - Luminarias)": 2500,
+                "Cable AWG 14 (m) - F/N/T": 1500, // Precio promedio por metro de conductor AWG 14/12
+                "Cable AWG 12 (m) - F/N/T": 2200,
+                "Cable AWG 10 (m) - F/N/T": 3500,
+                "Cable AWG 8 (m) - F/N/T": 5500,
+                "Tubería PVC 1/2 (m)": 2000, // Precio por metro de tubería
+                "Tubería PVC 3/4 (m)": 2800,
+                "Curvas PVC": 800,
+                "Adaptadores Terminales PVC": 600
+            };
+
+            let bom = {};
+            function addBOM(item, qty, type = "unitario") {
+                if (!bom[item]) bom[item] = { qty: 0, price: PRICES[item] || 0, type: type };
+                bom[item].qty += qty;
+            }
+
+            // 1. Contar Componentes (Nodos)
+            nodes.forEach(n => {
+                if (n.type === 'board') {
+                    addBOM("Tablero de Distribución", 1);
+                } else if (n.type === 'outlet') {
+                    if (n.voltage === 240) addBOM("Tomacorriente Especial (240V)", 1);
+                    else addBOM("Tomacorriente (180W)", 1);
+                    addBOM("Caja 5x10 (Empotrar - Tomas/Int)", 1);
+                } else if (n.type === 'light') {
+                    addBOM("Luminaria (60W)", 1);
+                    addBOM("Caja Octogonal (Empotrar - Luminarias)", 1);
+                } else if (n.type === 'switch') {
+                    addBOM("Interruptor Simple", 1);
+                    addBOM("Caja 5x10 (Empotrar - Tomas/Int)", 1);
+                } else if (n.type === 'switch3w') {
+                    addBOM("Conmutador (3 Vías)", 1);
+                    addBOM("Caja 5x10 (Empotrar - Tomas/Int)", 1);
+                }
+            });
+
+            // 2. Calcular Cables y Tuberías (Concesión vertical 3m)
+            let totalWireLength = { '8': 0, '10': 0, '12': 0, '14': 0 };
+            let totalPipe = 0;
+            let totalCurves = 0;
+            let totalAdapters = 0;
+
+            wires.forEach(w => {
+                let pxLen = 0;
+                let n1 = nodes.find(n => n.id === w.from);
+                let pts = [{x: n1.x, y: n1.y}];
+                if (w.points) pts = pts.concat(w.points);
+                let n2 = nodes.find(n => n.id === w.to);
+                pts.push({x: n2.x, y: n2.y});
+
+                for (let j = 0; j < pts.length - 1; j++) {
+                    let dx = pts[j+1].x - pts[j].x;
+                    let dy = pts[j+1].y - pts[j].y;
+                    pxLen += Math.sqrt(dx*dx + dy*dy);
+                }
+
+                let horizontalMeters = 0;
+                if (pxPerMeter) {
+                    horizontalMeters = pxLen / pxPerMeter;
+                } else {
+                    horizontalMeters = pxLen / 50; // default arbitrario si no calibrado
+                }
+
+                // Subidas y bajadas (3m por tramo asumido de caidas a cajas)
+                let verticalMeters = 3; 
+                let segmentLength = horizontalMeters + verticalMeters;
+
+                // Tubería
+                totalPipe += segmentLength;
+                
+                // Accesorios estimados: 1 curva por cada quiebre, 2 terminales por cable
+                totalCurves += (w.points ? w.points.length : 0);
+                totalAdapters += 2;
+
+                // Conductores
+                let conductors = (w.phases || 1) + (w.neutrals || 1) + (w.grounds || 1);
+                
+                // Determinar calibre: Buscar si este cable pertenece a un circuito
+                let awg = '14'; // default
+                let c = globalCircuits.find(circ => circ.wires.includes(w));
+                if (c && c.awg) awg = c.awg.toString();
+                
+                if (totalWireLength[awg] !== undefined) {
+                    totalWireLength[awg] += (segmentLength * conductors);
+                } else {
+                    totalWireLength['14'] += (segmentLength * conductors);
+                }
+            });
+
+            // Agregar Tuberías y Accesorios al BOM
+            addBOM("Tubería PVC 1/2 (m)", totalPipe, "metro");
+            addBOM("Curvas PVC", totalCurves);
+            addBOM("Adaptadores Terminales PVC", totalAdapters);
+            
+            if(totalWireLength['14'] > 0) addBOM("Cable AWG 14 (m) - F/N/T", totalWireLength['14'], "metro");
+            if(totalWireLength['12'] > 0) addBOM("Cable AWG 12 (m) - F/N/T", totalWireLength['12'], "metro");
+            if(totalWireLength['10'] > 0) addBOM("Cable AWG 10 (m) - F/N/T", totalWireLength['10'], "metro");
+            if(totalWireLength['8'] > 0) addBOM("Cable AWG 8 (m) - F/N/T", totalWireLength['8'], "metro");
+
+            // 3. Renderizar Tabla
+            let html = `
+                <table class="balance-table">
+                    <thead>
+                        <tr>
+                            <th>Material / Ítem</th>
+                            <th>Cantidad Estimada</th>
+                            <th>Valor Unitario (Ref.)</th>
+                            <th>Subtotal (Ref.)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            let grandTotal = 0;
+            
+            Object.keys(bom).forEach(item => {
+                if (bom[item].qty > 0) {
+                    let qty = bom[item].type === "metro" ? bom[item].qty.toFixed(2) + " m" : Math.ceil(bom[item].qty) + " und";
+                    let subtotal = bom[item].qty * bom[item].price;
+                    grandTotal += subtotal;
+                    
+                    html += `
+                        <tr>
+                            <td style="text-align: left;">${item}</td>
+                            <td>${qty}</td>
+                            <td style="text-align: right;">$${bom[item].price.toLocaleString('es-CO')}</td>
+                            <td style="text-align: right;">$${subtotal.toLocaleString('es-CO')}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            html += `
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="3" style="text-align: right; background-color: var(--dark); color: white;">COSTO DIRECTO ESTIMADO:</th>
+                            <th style="text-align: right; background-color: var(--dark); color: var(--accent); font-size: 1.2rem;">$${grandTotal.toLocaleString('es-CO')}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+                <p style="font-size: 0.8rem; margin-top: 10px; color: #7f8c8d;">
+                    *Nota: Los valores son netamente ilustrativos. Los metros de cable se calculan multiplicando la longitud de la tubería por el número de conductores que pasan por ese tramo. Se asume un margen de desperdicio y caídas verticales de 3m.
+                </p>
+            `;
+
+            resultsContainer.innerHTML = html;
+            modal.style.display = 'flex';
+        }
+
+        function closeMaterialsModal() {
+            document.getElementById('materials-modal').style.display = 'none';
+        }
+
+        function exportMaterialsCSV() {
+            const resultsContainer = document.getElementById('materials-results');
+            const rows = resultsContainer.querySelectorAll('tr');
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            rows.forEach((row, i) => {
+                let rowData = [];
+                const cols = row.querySelectorAll('th, td');
+                cols.forEach(c => {
+                    let text = c.innerText.replace(/\$/g, '').replace(/\./g, '').trim(); 
+                    rowData.push('"' + text + '"');
+                });
+                csvContent += rowData.join(",") + "\r\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "lista_materiales_simulador.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- SOPORTE DE TECLADO ---
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if ((selectedNodeId !== null || selectedWireIndex !== null) && e.target.tagName.toLowerCase() !== 'input') {
+                    deleteSelectedElement();
+                }
+            }
+        });
+
+        // Iniciar
+        analyzeSystem();
+
+    </script>
+</body>
+</html>
