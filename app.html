@@ -484,14 +484,24 @@
 
             <div id="prop-outlet-group" class="property-group" style="display:none;">
                 <label>Tipo de Carga (Tomacorriente):</label>
-                <select id="prop-outlet-type" onchange="updateOutletType()">
-                    <option value="gen">Uso General (180W / 120V)</option>
-                    <option value="nevera">Nevera (600W / 120V)</option>
-                    <option value="lavadora">Lavadora (1200W / 120V)</option>
-                    <option value="fogon">Fogón Eléctrico (4000W / 240V)</option>
-                    <option value="ev">Cargador Vehículo EV (7200W / 240V)</option>
+                <select id="prop-outlet-type" onchange="updateOutletType()" style="margin-bottom: 5px;">
+                    <option value="180_120">Uso General (180W / 120V)</option>
+                    <option value="300_120">Lavadora (300W / 120V)</option>
+                    <option value="1025_120">Microondas (1025W / 120V)</option>
+                    <option value="250_120">Nevera (250W / 120V)</option>
+                    <option value="1500_120">Lava vajillas / Otros (1500W / 120V)</option>
+                    <option value="8000_240">Estufa / Fogón (8000W / 240V)</option>
+                    <option value="3000_240">Tina (3000W / 240V)</option>
+                    <option value="2000_240">Secadora (2000W / 240V)</option>
+                    <option value="4500_240">Horno (4500W / 240V)</option>
                     <option value="custom">Personalizado...</option>
                 </select>
+                <div style="margin-top: 8px;">
+                    <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; cursor: pointer;">
+                        <input type="checkbox" id="prop-outlet-gfci" onchange="updateSelectedNode()">
+                        Es Tomacorriente GFCI (Zona Húmeda)
+                    </label>
+                </div>
             </div>
 
             <div id="prop-board-group" class="property-group" style="display:none;">
@@ -634,6 +644,20 @@
                         <li>Haz clic en el componente de origen (su borde se iluminará).</li>
                         <li>Haz clic en puntos intermedios en el plano si quieres doblar el cable, o haz clic directamente en el componente de destino para finalizar.</li>
                         <li><b>¡Regla Clave!</b> Todo circuito válido debe estar conectado a un 🔲 Tablero de Distribución para que se hagan los cálculos.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="help-accordion">
+                <summary><span>📖</span> 4. Criterios de Diseño (NTC 2050 / RETIE)</summary>
+                <div class="help-content">
+                    <p>Basado en normas colombianas para un diseño rápido y seguro:</p>
+                    <ul>
+                        <li><b>Tomacorrientes de Uso General:</b> Se asumen 180W por salida (Art. 220-3b).</li>
+                        <li><b>Zonas Húmedas:</b> En baños, cocinas (mesón) y garajes, utiliza tomas con protección <b>GFCI</b> marcando la opción en el panel de propiedades (Art. 210-8).</li>
+                        <li><b>Tableros:</b> Se calcula con sistema monofásico trifilar (120V / 240V). Las cargas a 120V se balancearán automáticamente entre las Fases A y B para evitar desequilibrios mayores al 10-15%.</li>
+                        <li><b>Factor de Demanda Residencial:</b> Para calcular la acometida y el Totalizador, el simulador toma los primeros 3.000W al 100% + la Estufa (Fogón) al 100%, y el resto de la carga al 35% de coincidencia (Tabla 220-11).</li>
+                        <li><b>Breakers y Calibres:</b> El simulador te sugerirá las protecciones ramales (15A, 20A, 40A, etc.) basadas en la carga conectada de cada circuito (sección 240).</li>
                     </ul>
                 </div>
             </details>
@@ -1355,7 +1379,8 @@ const SYMBOLS_B64 = {
                     propBoardGroup.style.display = 'none';
                     propOutletGroup.style.display = 'block';
                     document.getElementById('prop-power').value = node.power;
-                    propOutletType.value = node.loadType || 'custom';
+                    propOutletType.value = node.loadType || '180_120';
+                    document.getElementById('prop-outlet-gfci').checked = node.isGFCI || false;
                 } else {
                     propPowerGroup.style.display = 'block';
                     propBoardGroup.style.display = 'none';
@@ -1409,15 +1434,14 @@ const SYMBOLS_B64 = {
                 if (node && node.type === 'outlet') {
                     const type = propOutletType.value;
                     node.loadType = type;
-                    switch(type) {
-                        case 'gen': node.power = 180; node.voltage = 120; node.label = 'Toma'; break;
-                        case 'nevera': node.power = 600; node.voltage = 120; node.label = 'Nevera'; break;
-                        case 'lavadora': node.power = 1200; node.voltage = 120; node.label = 'Lavadora'; break;
-                        case 'fogon': node.power = 4000; node.voltage = 240; node.label = 'Fogón'; break;
-                        case 'ev': node.power = 7200; node.voltage = 240; node.label = 'Carg. EV'; break;
+                    if (type !== 'custom') {
+                        const parts = type.split('_');
+                        if (parts.length === 2) {
+                            node.power = parseFloat(parts[0]);
+                            node.voltage = parseInt(parts[1]);
+                        }
                     }
                     document.getElementById('prop-power').value = node.power;
-                    document.getElementById('prop-type').value = node.label;
                     analyzeSystem();
                 }
             }
@@ -1437,6 +1461,9 @@ const SYMBOLS_B64 = {
                             node.loadType = 'custom';
                             propOutletType.value = 'custom';
                         }
+                    }
+                    if (node.type === 'outlet') {
+                        node.isGFCI = document.getElementById('prop-outlet-gfci').checked;
                     }
                 }
                 analyzeSystem();
@@ -1669,6 +1696,10 @@ const SYMBOLS_B64 = {
             if (current <= 50) return 50;
             if (current <= 60) return 60;
             if (current <= 70) return 70;
+            if (current <= 100) return 100;
+            if (current <= 125) return 125;
+            if (current <= 150) return 150;
+            if (current <= 200) return 200;
             return "N/A";
         }
 
@@ -2260,6 +2291,14 @@ const SYMBOLS_B64 = {
 
         // --- SISTEMA DE BALANCE DE FASES ---
 
+        function updateCircuitName(event, id) {
+            let circuit = globalCircuits.find(c => c.id === id);
+            if(circuit) {
+                circuit.name = event.target.value;
+                analyzeSystem(); // To refresh UI
+            }
+        }
+
         function showBalanceModal() {
             const modal = document.getElementById('balance-modal');
             const resultsContainer = document.getElementById('balance-results');
@@ -2285,11 +2324,29 @@ const SYMBOLS_B64 = {
                 let c120 = boardCircuits.filter(c => !c.has240V && !c.isMixedVoltage);
                 let cMixed = boardCircuits.filter(c => c.isMixedVoltage);
 
+                const getRow = (c, pa, pb) => {
+                    let name = c.name || `Circuito ${c.id}`;
+                    let brk = getBreaker(c.current);
+                    let awg = getAWG(c.current).replace(" Cu", "");
+                    let paStr = pa > 0 ? pa.toFixed(1) + ' W' : '-';
+                    let pbStr = pb > 0 ? pb.toFixed(1) + ' W' : '-';
+                    let v = c.has240V ? '240V' : '120V';
+                    return `<tr>
+                        <td>C-${c.id}</td>
+                        <td><input type="text" value="${name}" onchange="updateCircuitName(event, ${c.id})" style="width:100%; border:1px solid #ccc; padding:2px; border-radius:3px;"></td>
+                        <td>${v}</td>
+                        <td style="${pa>0?'background-color:#eafaf1; font-weight:bold;':''}">${paStr}</td>
+                        <td style="${pb>0?'background-color:#eafaf1; font-weight:bold;':''}">${pbStr}</td>
+                        <td>1x${brk}A</td>
+                        <td>${awg}</td>
+                    </tr>`;
+                };
+
                 c240.forEach(c => {
                     let halfPower = c.power / 2;
                     phaseA += halfPower;
                     phaseB += halfPower;
-                    tableRows += `<tr><td>C-${c.id}</td><td>240V</td><td>${halfPower.toFixed(1)} W</td><td>${halfPower.toFixed(1)} W</td></tr>`;
+                    tableRows += getRow(c, halfPower, halfPower);
                 });
 
                 c120.sort((a, b) => b.power - a.power);
@@ -2297,15 +2354,15 @@ const SYMBOLS_B64 = {
                 c120.forEach(c => {
                     if (phaseA <= phaseB) {
                         phaseA += c.power;
-                        tableRows += `<tr><td>C-${c.id}</td><td>120V</td><td style="background-color: #eafaf1; font-weight: bold;">${c.power.toFixed(1)} W</td><td>-</td></tr>`;
+                        tableRows += getRow(c, c.power, 0);
                     } else {
                         phaseB += c.power;
-                        tableRows += `<tr><td>C-${c.id}</td><td>120V</td><td>-</td><td style="background-color: #eafaf1; font-weight: bold;">${c.power.toFixed(1)} W</td></tr>`;
+                        tableRows += getRow(c, 0, c.power);
                     }
                 });
 
                 cMixed.forEach(c => {
-                    tableRows += `<tr style="color: var(--danger); background-color: #fdedec;"><td>C-${c.id}</td><td>ERROR</td><td colspan="2">No balanceable (Mezcla 120/240V)</td></tr>`;
+                    tableRows += `<tr style="color: var(--danger); background-color: #fdedec;"><td>C-${c.id}</td><td><input type="text" value="${c.name || 'Circuito '+c.id}" onchange="updateCircuitName(event, ${c.id})"></td><td>ERROR</td><td colspan="4">No balanceable (Mezcla 120/240V)</td></tr>`;
                 });
 
                 let maxPhase = Math.max(phaseA, phaseB);
@@ -2313,14 +2370,17 @@ const SYMBOLS_B64 = {
                 let unbalance = maxPhase > 0 ? (diff / maxPhase) * 100 : 0;
 
                 html += `
-                    <h3 style="margin-top: 20px; color: var(--primary); background: #ecf0f1; padding: 10px; border-radius: 4px;">🔲 Tablero de Distribución T${board.id}</h3>
-                    <table class="balance-table">
+                    <h3 style="margin-top: 20px; color: var(--primary); background: #ecf0f1; padding: 10px; border-radius: 4px;">🔲 Cuadro de Cargas: Tablero T${board.id}</h3>
+                    <table class="balance-table" style="font-size:0.85rem;">
                         <thead>
                             <tr>
-                                <th>Circuito</th>
+                                <th>Cto.</th>
+                                <th>Descripción</th>
                                 <th>Voltaje</th>
-                                <th>Fase 1 (W)</th>
-                                <th>Fase 2 (W)</th>
+                                <th>Fase A (W)</th>
+                                <th>Fase B (W)</th>
+                                <th>Protección</th>
+                                <th>Calibre</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2328,9 +2388,10 @@ const SYMBOLS_B64 = {
                         </tbody>
                         <tfoot>
                             <tr>
-                                <th colspan="2">TOTALES POR FASE</th>
+                                <th colspan="3" style="text-align:right;">TOTALES POR FASE</th>
                                 <th>${phaseA.toFixed(1)} W</th>
                                 <th>${phaseB.toFixed(1)} W</th>
+                                <th colspan="2"></th>
                             </tr>
                         </tfoot>
                     </table>
@@ -2376,8 +2437,9 @@ const SYMBOLS_B64 = {
                 if (n.type === 'board') {
                     addBOM("Tablero de Distribución", 1);
                 } else if (n.type === 'outlet') {
-                    if (n.voltage === 240) addBOM("Tomacorriente Especial (240V)", 1);
-                    else addBOM("Tomacorriente (180W)", 1);
+                    if (n.isGFCI) addBOM("Tomacorriente GFCI (Zona Húmeda)", 1);
+                    else if (n.voltage === 240) addBOM("Tomacorriente Especial (240V)", 1);
+                    else addBOM("Tomacorriente Estándar", 1);
                     addBOM("Caja 5x10 (Empotrar - Tomas/Int)", 1);
                 } else if (n.type === 'light') {
                     addBOM("Luminaria (60W)", 1);
@@ -2453,6 +2515,38 @@ const SYMBOLS_B64 = {
             if(totalWireLength['12'] > 0) addBOM("Cable AWG 12 (m) - F/N/T", totalWireLength['12'], "metro");
             if(totalWireLength['10'] > 0) addBOM("Cable AWG 10 (m) - F/N/T", totalWireLength['10'], "metro");
             if(totalWireLength['8'] > 0) addBOM("Cable AWG 8 (m) - F/N/T", totalWireLength['8'], "metro");
+
+            // 3. Breakers por circuito
+            globalCircuits.forEach(c => {
+                let brk = getBreaker(c.current);
+                if (c.has240V) {
+                    addBOM(`Breaker 2x${brk}A`, 1);
+                } else {
+                    addBOM(`Breaker 1x${brk}A`, 1);
+                }
+            });
+
+            // 4. Demanda y Totalizador
+            let totalPower = 0;
+            let fogonPower = 0;
+            nodes.forEach(n => {
+                if (n.power) totalPower += n.power;
+                if (n.type === 'outlet' && (n.loadType === '8000_240' || n.loadType === 'fogon' || n.loadType === '4500_240' || n.loadType === 'ev')) {
+                    fogonPower += n.power; // Fogon, horno, ev toman 100%
+                }
+            });
+
+            let first3000 = Math.min(3000, Math.max(0, totalPower - fogonPower));
+            let remaining = Math.max(0, totalPower - fogonPower - first3000);
+            let totalDemand = fogonPower + first3000 + (remaining * 0.35);
+
+            if (totalDemand > 0) {
+                let mainCurrent = totalDemand / 240;
+                let mainBreaker = getBreaker(mainCurrent);
+                addBOM(`Totalizador (Breaker Principal) 2x${mainBreaker}A`, 1);
+                addBOM("Medidor de Energía Bifásico (Contador)", 1);
+                addBOM("Caja para Medidor Bifásico", 1);
+            }
 
             return bom;
         }
