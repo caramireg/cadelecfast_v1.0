@@ -450,6 +450,12 @@
             <button class="tool-btn" id="btn-measure" onclick="setMode('measure')">
                 <span class="tool-icon">📐</span> Medir Distancia
             </button>
+            <button class="tool-btn" id="btn-toggle-legend" onclick="toggleLegend()">
+                <span class="tool-icon">📋</span> Mostrar Leyenda
+            </button>
+            <button class="tool-btn" id="btn-toggle-labels" onclick="toggleNodeLabels()">
+                <span class="tool-icon">🏷️</span> Mostrar Etiquetas
+            </button>
             
             <h2 style="margin-top: 15px;">Componentes</h2>
             <button class="tool-btn" onclick="addComponent('board')">
@@ -549,6 +555,14 @@
         <div id="canvas-bg"></div>
         <svg id="wire-layer"></svg>
         <div id="tooltip">Haz clic en el primer punto...</div>
+        
+        <!-- Cuadro de Convenciones (Leyenda) -->
+        <div id="legend-overlay" style="position:absolute; bottom: 20px; left: 20px; background: rgba(255,255,255,0.95); border: 2px solid #bdc3c7; border-radius: 8px; padding: 10px; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; z-index: 100;">
+            <h4 style="margin:0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: var(--primary);">Cuadro de Convenciones</h4>
+            <div id="legend-content" style="display:grid; grid-template-columns: auto 1fr; gap: 8px 15px; align-items:center; font-size: 12px; font-weight: bold;">
+                <!-- Llenado dinámicamente -->
+            </div>
+        </div>
     </div>
 
     <!-- Panel Lateral Derecho (Análisis y Reportes) -->
@@ -820,6 +834,60 @@ const SYMBOLS_B64 = {
             reader.readAsDataURL(file);
         }
 
+        let showLegend = false;
+        function toggleLegend() {
+            showLegend = !showLegend;
+            const legend = document.getElementById('legend-overlay');
+            const btn = document.getElementById('btn-toggle-legend');
+            if (showLegend) {
+                legend.style.display = 'block';
+                btn.classList.add('active');
+                updateLegend();
+            } else {
+                legend.style.display = 'none';
+                btn.classList.remove('active');
+            }
+        }
+
+        let showNodeLabels = false;
+        function toggleNodeLabels() {
+            showNodeLabels = !showNodeLabels;
+            const btn = document.getElementById('btn-toggle-labels');
+            if (showNodeLabels) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+            renderWorkspace(); // Re-render to show/hide labels
+        }
+
+        function updateLegend() {
+            if (!showLegend) return;
+            const content = document.getElementById('legend-content');
+            let hasBoard = nodes.some(n => n.type === 'board');
+            let hasLight = nodes.some(n => n.type === 'light');
+            let hasSwitch = nodes.some(n => n.type === 'switch');
+            let hasSwitch3w = nodes.some(n => n.type === 'switch3w');
+            let hasOutlet = nodes.some(n => n.type === 'outlet' && !n.isGFCI && n.voltage !== 240);
+            let hasOutlet240 = nodes.some(n => n.type === 'outlet' && n.voltage === 240);
+            let hasGFCI = nodes.some(n => n.type === 'outlet' && n.isGFCI);
+
+            let html = '';
+            const addRow = (img, label, isDanger = false) => {
+                html += `<img src="${img}" style="width:20px;height:20px;object-fit:contain;"><span style="color:${isDanger?'red':'#2c3e50'}; font-weight:${isDanger?'bold':'normal'}">${label}</span>`;
+            };
+
+            if(hasBoard) addRow('simbolos/Tablero.png', 'Tablero de Distribución');
+            if(hasOutlet) addRow('simbolos/tomacorriente.png', 'Tomacorriente (120V)');
+            if(hasGFCI) addRow('simbolos/tomacorriente.png', 'Tomacorriente GFCI', true);
+            if(hasOutlet240) addRow('simbolos/tomacorriente.png', 'Tomacorriente Especial (240V)');
+            if(hasLight) addRow('simbolos/luminaria.png', 'Luminaria');
+            if(hasSwitch) addRow('simbolos/Interruptor sencillo.png', 'Interruptor Simple');
+            if(hasSwitch3w) addRow('simbolos/Interruptor conmutado.png', 'Conmutador (3 Vías)');
+
+            content.innerHTML = html;
+        }
+
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (mode === 'wire' && wireStartNodeId) {
@@ -947,10 +1015,22 @@ const SYMBOLS_B64 = {
                 
                 if (n1 && n2) {
                     let color = '#7f8c8d';
+                    let isWarning = false;
                     let circuit = globalCircuits.find(c => c.wires.includes(wire));
-                    if (circuit) color = circuit.color;
+                    if (circuit) {
+                        color = circuit.color;
+                        if (circuit.vDropPercent > 3) {
+                            color = 'var(--danger)'; // Red color for voltage drop warning
+                            isWarning = true;
+                        }
+                    }
 
                     const wireGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    if (isWarning) {
+                        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                        title.textContent = `⚠️ Advertencia: Caída de tensión del ${circuit.vDropPercent.toFixed(1)}% (> 3%)`;
+                        wireGroup.appendChild(title);
+                    }
                     wireGroup.classList.add('wire-group');
 
                     let pointsStr = `${n1.x},${n1.y}`;
@@ -1166,12 +1246,26 @@ const SYMBOLS_B64 = {
                 if(node.type === 'board') extraInfo = `<br>${node.usedSlots || 0}/${node.circuits} Vías`;
                 else if (node.power > 0) extraInfo = `<br>${node.power}W`;
 
-                let newHTML = `<img src="${node.img}" style="width: 26px; height: 26px; object-fit: contain; pointer-events: none;" alt="${node.label}">
+                let circInfo = '';
+                if (showNodeLabels) {
+                    if (node.type !== 'board') {
+                        let circ = globalCircuits.find(c => c.nodes && c.nodes.some(n => n.id === node.id));
+                        if (circ) {
+                            circInfo = `<div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:bold; color:var(--primary); background:rgba(255,255,255,0.8); padding:0 3px; border-radius:3px; border: 1px solid var(--primary);">C-${circ.id}</div>`;
+                        }
+                    }
+                    if (node.isGFCI) {
+                        circInfo += `<div style="position:absolute; bottom:-12px; left:50%; transform:translateX(-50%); font-size:9px; font-weight:bold; color:red; background:rgba(255,255,255,0.8); padding:0 3px; border-radius:3px; border: 1px solid red;">GFCI</div>`;
+                    }
+                }
+
+                let newHTML = `${circInfo}<img src="${node.img}" style="width: 26px; height: 26px; object-fit: contain; pointer-events: none;" alt="${node.label}">
                                 <div class="label">${node.label} ${extraInfo}</div>`;
                 if (el.innerHTML !== newHTML) {
                     el.innerHTML = newHTML;
                 }
             });
+            updateLegend();
         }
 
         // --- INTERACCIONES ---
@@ -1976,8 +2070,15 @@ const SYMBOLS_B64 = {
                 const n2 = nodes.find(n => n.id === wire.to);
                 if (n1 && n2) {
                     let color = '#7f8c8d';
+                    let isWarning = false;
                     let circuit = globalCircuits.find(c => c.wires.includes(wire));
-                    if (circuit) color = circuit.color;
+                    if (circuit) {
+                        color = circuit.color;
+                        if (circuit.vDropPercent > 3) {
+                            color = '#e74c3c'; // Red for voltage drop warning
+                            isWarning = true;
+                        }
+                    }
 
                     let allPoints = [{x: n1.x, y: n1.y}, ...(wire.points || []), {x: n2.x, y: n2.y}];
 
@@ -2103,6 +2204,22 @@ const SYMBOLS_B64 = {
                     ctx.font = '10px Arial';
                     ctx.fillStyle = '#000000';
                     ctx.fillText('Img', node.x, node.y);
+                }
+
+                if (showNodeLabels) {
+                    if (node.type !== 'board') {
+                        let circ = globalCircuits.find(c => c.nodes && c.nodes.some(n => n.id === node.id));
+                        if (circ) {
+                            ctx.font = 'bold 12px Arial';
+                            ctx.fillStyle = '#2980b9';
+                            ctx.fillText(`C-${circ.id}`, node.x - 12, node.y - 16);
+                        }
+                    }
+                    if (node.isGFCI) {
+                        ctx.font = 'bold 10px Arial';
+                        ctx.fillStyle = 'red';
+                        ctx.fillText('GFCI', node.x - 12, node.y + 24);
+                    }
                 }
 
                 ctx.font = 'bold 10px Arial';
