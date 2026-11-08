@@ -3,60 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso - Cadelec fast</title>
+    <title>Cadelec Fast Web — Simulador Eléctrico Gratuito para Celulares, Tablets y PC</title>
     <style>
         :root {
             --primary: #2c3e50;
             --accent: #3498db;
             --dark: #1a252f;
             --light: #ecf0f1;
+            --success: #2ecc71;
         }
 
         body {
             margin: 0;
-            padding: 0;
+            padding: 70px 15px 25px 15px;
             background-color: var(--dark);
             color: var(--light);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .top-promo-bar {
+            background-color: #f39c12;
+            color: #2c3e50;
+            padding: 12px 15px;
+            text-align: center;
+            font-weight: bold;
+            width: 100%;
+            box-sizing: border-box;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            font-size: 0.9rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
         }
 
         .login-container {
             background-color: var(--primary);
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            padding: 32px 28px;
+            border-radius: 14px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
             text-align: center;
             width: 100%;
-            max-width: 400px;
+            max-width: 440px;
+            border: 1px solid rgba(255,255,255,0.08);
         }
 
         .logo {
-            width: 80%;
-            max-width: 250px;
-            margin-bottom: 20px;
+            width: 78%;
+            max-width: 230px;
+            margin-bottom: 12px;
         }
 
         h2 {
             margin-top: 0;
-            font-weight: 400;
-            margin-bottom: 30px;
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
             color: #bdc3c7;
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+
+        .feature-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .badge {
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid rgba(52, 152, 219, 0.5);
+            color: #ecf0f1;
+            font-size: 0.75rem;
+            padding: 4px 9px;
+            border-radius: 14px;
+            font-weight: 600;
         }
 
         .input-group {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             text-align: left;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            color: #95a5a6;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #bdc3c7;
+            font-weight: 600;
         }
 
         input[type="password"] {
@@ -78,70 +124,92 @@
 
         button {
             width: 100%;
-            padding: 14px;
+            padding: 13px;
             background-color: var(--accent);
             color: white;
             border: none;
             border-radius: 6px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color 0.25s, transform 0.15s;
         }
 
         button:hover {
             background-color: #2980b9;
         }
 
-        .error-message {
-            color: #e74c3c;
-            margin-top: 15px;
+        .btn-quick-access {
+            margin-top: 10px;
+            background-color: #27ae60;
             font-size: 14px;
+            padding: 11px;
+        }
+        .btn-quick-access:hover {
+            background-color: #219150;
+        }
+
+        .error-message {
+            color: #ff7675;
+            margin-top: 12px;
+            font-size: 13px;
             display: none;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <!-- BANNER PROMOCIONAL V2 -->
-    <div style="background-color: #f39c12; color: #2c3e50; padding: 15px; text-align: center; font-weight: bold; width: 100%; box-sizing: border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 0.95rem; position: absolute; top: 0;">
-        🚀 ¡Ya está disponible Cadelec Fast PRO v2.0 (Aplicación Nativa de Escritorio)! <br>
-        <a href="https://github.com/tu-usuario/Cadelec-fast" target="_blank" style="color: #2c3e50; text-decoration: underline;">Déjanos tu opinión o sugerencia sobre esta versión y obtén un 50% de descuento en tu licencia.</a>
+    <div class="top-promo-bar">
+        🚀 ¡Ya está disponible Cadelec Fast PRO v2.0 (Aplicación Nativa de Escritorio para Windows)! <br>
+        <a href="https://github.com/caramireg/cadelecfast_v1.0/releases/tag/v2.0.0" target="_blank" style="color: #1a252f; text-decoration: underline;">Descarga la versión de escritorio o déjanos tus sugerencias en GitHub aquí.</a>
     </div>
 
     <div class="login-container">
         <!-- BANNER PROMOCIONAL V2 -->
-        <div style="background-color: #f1c40f; color: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; border: 2px solid #f39c12; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('https://github.com/caramireg/cadelecfast_v1.0/releases/tag/v2.0.0', '_blank')">
-            <h3 style="margin: 0 0 5px 0; color: #d35400;">🚀 ¡La Versión 2.0 ya está aquí!</h3>
-            <p style="margin: 0; font-size: 0.9rem;">Prueba Gratuita + Sistema en la Nube + Nuevas Herramientas.</p>
-            <button style="margin-top: 10px; background-color: #e67e22; padding: 8px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">Descargar V2 Gratis</button>
+        <div style="background-color: #f1c40f; color: #2c3e50; padding: 14px; border-radius: 8px; margin-bottom: 18px; font-weight: bold; border: 2px solid #f39c12; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('https://github.com/caramireg/cadelecfast_v1.0/releases/tag/v2.0.0', '_blank')">
+            <h3 style="margin: 0 0 4px 0; color: #d35400; font-size: 1rem;">🚀 ¿Buscas Proyectos Avanzados?</h3>
+            <p style="margin: 0; font-size: 0.84rem;">Prueba Cadelec Fast PRO V2.0 con motor multicircuito avanzado y licenciamiento en la nube.</p>
+            <button type="button" style="margin-top: 8px; background-color: #e67e22; padding: 8px; font-size: 13px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">Descargar Cadelec PRO V2</button>
         </div>
 
         <img src="CADELEC.png" alt="Cadelec fast" class="logo">
-        <h2>Diseño Eléctrico CAD (V1 Antigua)</h2>
+        <h2>Cadelec Fast Web — Edición Gratuita</h2>
+        <p class="subtitle">Diseña planos eléctricos simples, calcula cuadros de cargas RETIE y genera presupuestos listos para WhatsApp desde tu celular, tablet o PC.</p>
+
+        <div class="feature-badges">
+            <span class="badge">📱 Táctil (Celular y Tablet)</span>
+            <span class="badge">🏠 8 Planos de Casas Incluidos</span>
+            <span class="badge">⚡ Cálculos RETIE + Presupuesto</span>
+        </div>
         
         <form id="loginForm" onsubmit="handleLogin(event)">
             <div class="input-group">
-                <label for="password">Contraseña de Acceso</label>
-                <input type="password" id="password" placeholder="Ingresa la clave..." required autofocus>
+                <label for="password">Contraseña de Acceso (Clave gratuita: <b style="color:#f1c40f;">cadelec2026</b>)</label>
+                <input type="password" id="password" placeholder="Ingresa la clave (cadelec2026)..." required autofocus>
             </div>
             
-            <button type="submit">Ingresar</button>
-            <div id="errorMessage" class="error-message">Contraseña incorrecta. Inténtalo de nuevo.</div>
+            <button type="submit">Ingresar al Simulador Web</button>
+            <button type="button" class="btn-quick-access" onclick="quickLogin()">⚡ Entrar en 1 Clic (Usar Clave Gratuita)</button>
+            <div id="errorMessage" class="error-message">Contraseña incorrecta. Usa la clave gratuita: cadelec2026</div>
         </form>
     </div>
 
     <script>
+        function quickLogin() {
+            document.getElementById('password').value = 'cadelec2026';
+            sessionStorage.setItem('cadelec_auth', 'cadelec2026');
+            window.location.href = 'app.html';
+        }
+
         function handleLogin(e) {
             e.preventDefault();
-            const pass = document.getElementById('password').value;
+            const pass = document.getElementById('password').value.trim();
             const errorMsg = document.getElementById('errorMessage');
             
-            // Verificamos la contraseña proporcionada por el usuario
             if (pass === 'cadelec2026') {
                 errorMsg.style.display = 'none';
-                // Guardar la autorización temporal en la sesión del navegador
                 sessionStorage.setItem('cadelec_auth', pass);
-                // Redirigir a la app principal
                 window.location.href = 'app.html';
             } else {
                 errorMsg.style.display = 'block';

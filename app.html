@@ -36,6 +36,7 @@
             height: 100%;
             margin: 0;
             padding: 0;
+            overscroll-behavior: none;
         }
 
         body {
@@ -433,6 +434,119 @@
             cursor: pointer;
             padding: 0 4px;
         }
+        .hud-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Indicador de Estado de Guardado */
+        #autosave-badge {
+            font-size: 0.74rem;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: #eafaf1;
+            color: #27ae60;
+            border: 1px solid #a9dfbf;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        #autosave-badge.dirty {
+            background: #fef9e7;
+            color: #d35400;
+            border-color: #f9e79f;
+        }
+
+        /* Galería Visual de Planos de Ejemplo (Diseños/) */
+        .sample-plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+            gap: 14px;
+            margin-top: 12px;
+        }
+        .sample-plan-card {
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
+            cursor: pointer;
+            transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+            display: flex;
+            flex-direction: column;
+        }
+        .sample-plan-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+            box-shadow: 0 6px 16px rgba(52, 152, 219, 0.22);
+        }
+        .sample-plan-thumb {
+            width: 100%;
+            height: 125px;
+            object-fit: cover;
+            background: #f8fafc;
+            border-bottom: 1px solid #eee;
+        }
+        .sample-plan-info {
+            padding: 8px 10px;
+            text-align: left;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .sample-plan-title {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 3px;
+        }
+        .sample-plan-desc {
+            font-size: 0.72rem;
+            color: #64748b;
+            margin-bottom: 6px;
+            line-height: 1.25;
+        }
+        .sample-plan-btn {
+            width: 100%;
+            padding: 6px;
+            font-size: 0.76rem;
+            font-weight: bold;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Notificación de Recuperación de Sesión */
+        #recovery-banner {
+            position: absolute;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2c3e50;
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 250;
+            max-width: 94%;
+            flex-wrap: wrap;
+            justify-content: center;
+            font-size: 0.84rem;
+            border: 2px solid #f1c40f;
+        }
+        @media (max-width: 960px) {
+            #recovery-banner {
+                bottom: 68px;
+            }
+        }
 
         /* Banner Táctil de Estado / Guía Interactiva */
         #touch-status-banner {
@@ -735,10 +849,13 @@
             </button>
             
             <h2 style="margin-top: 15px;">Fondo y Escala</h2>
-            <button class="tool-btn" onclick="document.getElementById('file-input').click()">
-                <span class="tool-icon">🖼️</span> Cargar Plano Base
+            <button class="tool-btn" style="background-color: #eafaf1; border-color: #2ecc71; font-weight: bold; color: #1e8449;" onclick="openSamplePlansModal()">
+                <span class="tool-icon">🏠</span> Planos de Ejemplo (8 Casas)
             </button>
-            <p style="font-size: 0.75rem; color: #7f8c8d; margin-top: 5px; margin-bottom: 15px; text-align: center; line-height: 1.2;">Formatos admitidos: JPG, PNG, WEBP.<br><small>(Si tomas la foto con iPhone/HEIC, asegúrate de que se convierta a JPG)</small></p>
+            <button class="tool-btn" onclick="document.getElementById('file-input').click()">
+                <span class="tool-icon">🖼️</span> Subir Tu Propio Plano
+            </button>
+            <p style="font-size: 0.73rem; color: #7f8c8d; margin-top: 4px; margin-bottom: 12px; text-align: center; line-height: 1.2;">Usa cualquiera de las 8 casas incluidas o sube tu foto/plano (JPG, PNG, WEBP).</p>
             <input type="file" id="file-input" style="display:none" accept="image/jpeg, image/png, image/webp" onchange="loadPlan(this)">
             
             <button class="tool-btn" id="btn-calibrate" onclick="setMode('calibrate'); closeMobileDrawers();">
@@ -867,8 +984,13 @@
 
     <!-- Lienzo de Trabajo (Centro) -->
     <div class="workspace" id="workspace">
-        <!-- Controles Flotantes HUD (Zoom, Vista y Escala de Símbolos) -->
+        <!-- Controles Flotantes HUD (Zoom, Vista, Escala de Símbolos, Historial y Planos Base) -->
         <div class="canvas-hud" onpointerdown="event.stopPropagation()">
+            <button class="hud-btn" style="background:#eafaf1; border-color:#2ecc71; color:#1e8449;" onclick="openSamplePlansModal()" title="Elegir entre los 8 planos de casas incluidos">🏠 Planos</button>
+            <div class="hud-group" title="Deshacer / Rehacer">
+                <button class="hud-btn" id="hud-btn-undo" onclick="undoAction()" disabled title="Deshacer último cambio (Ctrl+Z)">↩</button>
+                <button class="hud-btn" id="hud-btn-redo" onclick="redoAction()" disabled title="Rehacer cambio (Ctrl+Y)">↪</button>
+            </div>
             <div class="hud-group" title="Zoom del Plano">
                 <button class="hud-btn" onclick="changeZoom(-0.15)" title="Alejar plano">➖</button>
                 <span class="hud-val" id="zoom-val-label" onclick="fitWorldToScreen()" title="Toca para encuadrar plano en pantalla">100%</span>
@@ -882,6 +1004,7 @@
                 <button class="hud-btn" onclick="changeSymbolScale(0.1)" title="Aumentar tamaño de símbolos">➕</button>
             </div>
             <button class="hud-btn" id="hud-btn-captions" onclick="toggleNodeCaptions()" title="Mostrar/Ocultar textos inferiores (Modo Plano Limpio)">📝 Textos</button>
+            <span id="autosave-badge" onclick="saveDesign()" title="Estado del proyecto (Toca para guardar ahora)">☁️ Listo</span>
         </div>
 
         <!-- Banner Táctil de Ayuda Contextual -->
@@ -901,6 +1024,15 @@
         
         <button id="mobile-prop-pill" onpointerdown="event.stopPropagation()" onclick="openMobileDrawer('left', true)">⚙️ Editar Propiedades</button>
 
+        <!-- Banner de Recuperación Automática si hubo cierre o recarga previa -->
+        <div id="recovery-banner" onpointerdown="event.stopPropagation()">
+            <span>🔄 <b>Encontramos un diseño reciente autoguardado.</b> ¿Deseas recuperarlo?</span>
+            <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-save" style="padding:5px 10px; font-size:0.78rem;" onclick="restoreAutoSave()">✅ Recuperar Diseño</button>
+                <button type="button" class="btn" style="padding:5px 10px; font-size:0.78rem; background:#7f8c8d;" onclick="dismissAutoSaveBanner()">✖ Descartar</button>
+            </div>
+        </div>
+
         <!-- Cuadro de Convenciones (Leyenda) -->
         <div id="legend-overlay" style="position:absolute; bottom: 20px; left: 20px; background: rgba(255,255,255,0.95); border: 2px solid #bdc3c7; border-radius: 8px; padding: 10px; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; z-index: 100;">
             <h4 style="margin:0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: var(--primary);">Cuadro de Convenciones</h4>
@@ -919,26 +1051,33 @@
         </div>
 
         <div class="panel">
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:8px; margin-bottom:12px;">
+                <label style="font-size:0.75rem; font-weight:bold; color:var(--primary); display:block; margin-bottom:3px;">📋 Datos del Proyecto (Para Plano y Cotización):</label>
+                <input type="text" id="project-name-input" placeholder="Nombre del proyecto (Ej: Casa Modelo 1)" value="Proyecto Eléctrico Residencial" oninput="updateProjectMeta()" style="width:100%; padding:5px 7px; font-size:0.8rem; border:1px solid #cbd5e1; border-radius:4px; margin-bottom:5px; font-weight:bold;">
+                <input type="text" id="project-author-input" placeholder="Electricista / Empresa / Teléfono (Opcional)" value="" oninput="updateProjectMeta()" style="width:100%; padding:5px 7px; font-size:0.78rem; border:1px solid #cbd5e1; border-radius:4px;">
+            </div>
             <h2>Cuadro de Cargas</h2>
             <div id="circuits-container">
-                <p style="font-size:0.85rem; color:#7f8c8d; text-align: center; margin-top: 20px;">
-                    Agrega un Tablero, componentes y conéctalos para calcular la carga.
+                <p style="font-size:0.85rem; color:#7f8c8d; text-align: center; margin-top: 15px;">
+                    Agrega un Tablero, componentes y conéctalos, o elige uno de los <b>🏠 8 Planos de Ejemplo</b> para empezar al instante.
                 </p>
+                <button type="button" class="btn" style="width:100%; margin-top:10px; background:#27ae60; font-size:0.82rem;" onclick="openSamplePlansModal()">🏠 Elegir Plano de Casa (8 Diseños)</button>
             </div>
         </div>
 
         <div class="action-btns">
-            <button class="btn btn-clear" onclick="clearWorkspace()">Limpiar Todo</button>
             <button class="btn btn-save" onclick="saveDesign()">💾 Guardar (Web)</button>
             <button class="btn btn-load" onclick="loadDesign()">📂 Cargar (Web)</button>
-            <button class="btn" style="background-color: #34495e;" onclick="downloadProject()">⬇️ Bajar Proy.</button>
-            <button class="btn" style="background-color: #34495e;" onclick="document.getElementById('file-upload-project').click()">⬆️ Subir Proy.</button>
+            <button class="btn" style="background-color: #34495e;" onclick="downloadProject()">⬇️ Bajar .JSON</button>
+            <button class="btn" style="background-color: #34495e;" onclick="document.getElementById('file-upload-project').click()">⬆️ Subir .JSON</button>
             <input type="file" id="file-upload-project" style="display:none" accept=".json" onchange="uploadProject(this)">
             
-            <button class="btn" style="background-color: #8e44ad;" onclick="exportImage()">📷 Exp. Plano</button>
+            <button class="btn" style="background-color: #8e44ad;" onclick="exportImage(false)">📷 Bajar Plano</button>
+            <button class="btn" style="background-color: #25d366; color:#fff;" onclick="exportImage(true)">📲 Compartir Plano</button>
             <button class="btn" style="background-color: #e67e22;" onclick="exportCSV()">📊 Exp. Cuadro</button>
             <button class="btn" style="background-color: #2980b9;" onclick="showBalanceModal()">⚖️ Balance</button>
             <button class="btn" style="background-color: #f1c40f; color:#333;" onclick="showMaterialsModal()">💰 Presupuesto</button>
+            <button class="btn btn-clear" onclick="clearWorkspace()">🗑️ Limpiar</button>
             <button class="btn" style="background-color: #16a085; grid-column: span 2;" onclick="showHelpModal()">❓ Guía de Uso</button>
         </div>
     </div>
@@ -1142,7 +1281,45 @@
             <div id="materials-results"></div>
             <div style="margin-top: 20px; text-align: center; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
                 <button class="btn" style="background-color: #27ae60; color: white;" onclick="exportMaterialsCSV()">📥 Exportar a Excel (.csv)</button>
-                <button class="btn" style="background-color: #8e44ad; color: white;" onclick="exportMaterialsImage()">📷 Exportar a Imagen (WhatsApp)</button>
+                <button class="btn" style="background-color: #8e44ad; color: white;" onclick="exportMaterialsImage(false)">📷 Descargar Cotización (PNG)</button>
+                <button class="btn" style="background-color: #25d366; color: white;" onclick="exportMaterialsImage(true)">📲 Compartir por WhatsApp</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Galería de Planos de Ejemplo (Carpeta Diseños/ del Repositorio) -->
+    <div class="modal-overlay" id="sample-plans-modal">
+        <div class="modal-content" style="max-width: 820px; max-height: 88vh;">
+            <button class="modal-close" onclick="closeSamplePlansModal()">✖</button>
+            <h2 style="color: var(--primary); border-bottom: 2px solid var(--accent); padding-bottom: 8px; margin-bottom: 8px;">
+                🏠 Galería de Planos Base Incluidos (Carpeta Diseños/)
+            </h2>
+            <p style="font-size: 0.88rem; color: #555; margin-bottom: 12px;">
+                ¿No tienes el plano de una casa a la mano? Selecciona cualquiera de estos <b>8 planos arquitectónicos incluidos</b> con escala pre-calibrada para empezar a diseñar, cotizar o practicar de inmediato:
+            </p>
+            <div style="background: #eafaf1; border: 1px solid #2ecc71; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                <div style="font-size: 0.84rem; color: #1e8449;">
+                    <b>⚡ ¿Primera vez en Cadelec Fast?</b> Carga un plano con un circuito eléctrico ya conectado (Tablero, Luminarias, Interruptor y Tomas) para explorar el Balance de Fases y Presupuesto.
+                </div>
+                <button type="button" class="btn" style="background: #27ae60; padding: 8px 14px; font-size: 0.82rem; white-space: nowrap;" onclick="loadSamplePlan('Diseños/Designer1.png', 'Casa Modelo 1 (Demo Conectada)', true)">🚀 Cargar Casa + Circuito Demo</button>
+            </div>
+            <div class="sample-plans-grid" id="sample-plans-grid"></div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación antes de Recargar (Al presionar F5 / Ctrl+R) -->
+    <div class="modal-overlay" id="reload-confirm-modal">
+        <div class="modal-content" style="max-width: 440px; text-align: center;">
+            <button class="modal-close" onclick="closeReloadConfirmModal()">✖</button>
+            <h2 style="color: var(--danger); margin-bottom: 10px;">⚠️ ¿Guardar cambios antes de recargar?</h2>
+            <p style="font-size: 0.9rem; color: #444; margin-bottom: 16px; line-height: 1.4;">
+                Tienes cambios en tu diseño eléctrico actual. Antes de recargar la página, puedes guardar tu avance para no perder nada:
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button type="button" class="btn btn-save" style="padding: 11px; font-size: 0.9rem;" onclick="saveAndReload()">💾 Guardar en el Navegador y Recargar</button>
+                <button type="button" class="btn" style="background: #34495e; padding: 11px; font-size: 0.9rem;" onclick="downloadAndReload()">⬇️ Descargar Archivo (.JSON) y Recargar</button>
+                <button type="button" class="btn btn-clear" style="padding: 10px; font-size: 0.85rem;" onclick="forceReloadWithoutSaving()">🔄 Recargar sin Guardar</button>
+                <button type="button" class="btn" style="background: #95a5a6; padding: 9px; font-size: 0.85rem;" onclick="closeReloadConfirmModal()">✖ Cancelar y Seguir Diseñando</button>
             </div>
         </div>
     </div>
@@ -1221,6 +1398,28 @@ const SYMBOLS_B64 = {
         };
         let customCosts = [];
         let taxConfig = { applyTax: false, rate: 19 };
+        let projectMeta = { name: "Proyecto Eléctrico Residencial", author: "" };
+
+        // Estado de Protección contra Pérdida de Datos e Historial (Undo/Redo)
+        let hasUnsavedChanges = false;
+        let allowUnloadWithoutPrompt = false;
+        let autoSaveTimer = null;
+        let isRestoringState = false;
+        let undoStack = [];
+        let redoStack = [];
+        const MAX_UNDO_STEPS = 25;
+
+        // Catálogo de los 8 Planos de Casas incluidos en la carpeta Diseños/ del repositorio
+        const SAMPLE_PLANS_CATALOG = [
+            { file: "Diseños/Designer1.png", title: "Casa Modelo 1", desc: "Planta residencial tipo A (Sala, comedor, cocina y alcobas)" },
+            { file: "Diseños/Designer 2.png", title: "Casa Modelo 2", desc: "Distribución familiar tipo B con zona social integrada" },
+            { file: "Diseños/Designer 3.png", title: "Casa Modelo 3", desc: "Apartamento / Vivienda compacta ideal para prácticas rápidas" },
+            { file: "Diseños/Designer 4.png", title: "Casa Modelo 4", desc: "Vivienda familiar de múltiples habitaciones y baños" },
+            { file: "Diseños/Designer 5.png", title: "Casa Modelo 5", desc: "Planta arquitectónica residencial de distribución amplia" },
+            { file: "Diseños/Designer 6.png", title: "Casa Modelo 6", desc: "Diseño moderno para distribución de iluminación y tomas" },
+            { file: "Diseños/Designer 7.png", title: "Casa Modelo 7", desc: "Vivienda unifamiliar completa con zonas húmedas definidas" },
+            { file: "Diseños/Designer 8.png", title: "Casa Modelo 8", desc: "Planta general para práctica de circuitos ramales RETIE" }
+        ];
 
         // Referencias DOM
         const workspace = document.getElementById('workspace');
@@ -1436,27 +1635,326 @@ const SYMBOLS_B64 = {
 
         // --- FUNCIONES PRINCIPALES ---
 
+        // --- PROTECCIÓN CONTRA RECARGA ACCIDENTAL, AUTO-GUARDADO E HISTORIAL (UNDO/REDO) ---
+
+        function getProjectSlug() {
+            const raw = (projectMeta && projectMeta.name ? projectMeta.name : "Proyecto_Cadelec").trim();
+            return raw.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || "Proyecto_Cadelec";
+        }
+
+        function updateProjectMeta() {
+            const nameInp = document.getElementById('project-name-input');
+            const authInp = document.getElementById('project-author-input');
+            if (nameInp) projectMeta.name = nameInp.value;
+            if (authInp) projectMeta.author = authInp.value;
+            markProjectDirty();
+        }
+
+        function buildProjectSnapshot(includeBg = true) {
+            return {
+                nodes: JSON.parse(JSON.stringify(nodes)),
+                wires: JSON.parse(JSON.stringify(wires)),
+                idCounter,
+                bgImageBase64: includeBg ? bgImageBase64 : undefined,
+                pxPerMeter,
+                projectPrices: JSON.parse(JSON.stringify(projectPrices)),
+                customCosts: JSON.parse(JSON.stringify(customCosts)),
+                taxConfig: JSON.parse(JSON.stringify(taxConfig)),
+                projectMeta: JSON.parse(JSON.stringify(projectMeta)),
+                worldWidth,
+                worldHeight,
+                symbolScale,
+                showNodeCaptions,
+                savedAt: Date.now()
+            };
+        }
+
+        function pushUndoState() {
+            if (isRestoringState) return;
+            undoStack.push(JSON.stringify(buildProjectSnapshot(false)));
+            if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
+            redoStack = [];
+            updateUndoRedoUI();
+        }
+
+        function updateUndoRedoUI() {
+            const btnU = document.getElementById('hud-btn-undo');
+            const btnR = document.getElementById('hud-btn-redo');
+            if (btnU) btnU.disabled = undoStack.length === 0;
+            if (btnR) btnR.disabled = redoStack.length === 0;
+        }
+
+        function applyUndoRedoState(stateStr) {
+            isRestoringState = true;
+            try {
+                const data = JSON.parse(stateStr);
+                nodes = data.nodes || [];
+                wires = data.wires || [];
+                idCounter = data.idCounter || 1;
+                pxPerMeter = data.pxPerMeter || null;
+                selectedNodeId = null;
+                selectedWireIndex = null;
+                wireStartNodeId = null;
+                propPanel.style.display = 'none';
+                updateMobilePropPill();
+                analyzeSystem();
+                markProjectDirty();
+            } finally {
+                isRestoringState = false;
+                updateUndoRedoUI();
+            }
+        }
+
+        function undoAction() {
+            if (undoStack.length === 0) return;
+            redoStack.push(JSON.stringify(buildProjectSnapshot(false)));
+            const prev = undoStack.pop();
+            applyUndoRedoState(prev);
+        }
+
+        function redoAction() {
+            if (redoStack.length === 0) return;
+            undoStack.push(JSON.stringify(buildProjectSnapshot(false)));
+            const next = redoStack.pop();
+            applyUndoRedoState(next);
+        }
+
+        function updateAutosaveBadge(state) {
+            const badge = document.getElementById('autosave-badge');
+            if (!badge) return;
+            if (state === 'dirty') {
+                badge.classList.add('dirty');
+                badge.innerText = '⚠️ Guardar';
+                badge.title = 'Tienes cambios sin confirmar. Toca aquí para guardar ahora.';
+            } else if (state === 'autosaved') {
+                badge.classList.add('dirty');
+                badge.innerText = '☁️ Auto-respaldo';
+                badge.title = 'Respaldo automático activo. Toca aquí para guardar oficialmente.';
+            } else {
+                badge.classList.remove('dirty');
+                badge.innerText = '☁️ Guardado';
+                badge.title = 'Todos tus cambios están guardados.';
+            }
+        }
+
+        function markProjectDirty() {
+            if (isRestoringState) return;
+            if (nodes.length === 0 && !bgImageBase64) {
+                hasUnsavedChanges = false;
+                updateAutosaveBadge('saved');
+                return;
+            }
+            hasUnsavedChanges = true;
+            updateAutosaveBadge('dirty');
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                try {
+                    const snap = buildProjectSnapshot(true);
+                    localStorage.setItem('stem-electrical-autosave', JSON.stringify(snap));
+                    if (hasUnsavedChanges) updateAutosaveBadge('autosaved');
+                } catch (e) {
+                    // Si la imagen excede la cuota, guardar respaldo ligero sin la imagen base64
+                    try {
+                        const lightSnap = buildProjectSnapshot(false);
+                        localStorage.setItem('stem-electrical-autosave', JSON.stringify(lightSnap));
+                    } catch (_) {}
+                }
+            }, 450);
+        }
+
+        // Avisar al usuario antes de recargar o cerrar la pestaña si hay cambios en el plano
+        window.addEventListener('beforeunload', (e) => {
+            if (allowUnloadWithoutPrompt) return;
+            if (hasUnsavedChanges && (nodes.length > 0 || bgImageBase64)) {
+                try {
+                    localStorage.setItem('stem-electrical-autosave', JSON.stringify(buildProjectSnapshot(true)));
+                } catch (_) {}
+                e.preventDefault();
+                e.returnValue = 'Tienes cambios en tu diseño eléctrico. ¿Deseas salir o recargar sin guardar?';
+                return e.returnValue;
+            }
+        });
+
+        function closeReloadConfirmModal() {
+            const m = document.getElementById('reload-confirm-modal');
+            if (m) m.style.display = 'none';
+        }
+
+        function saveAndReload() {
+            saveDesign();
+            allowUnloadWithoutPrompt = true;
+            window.location.reload();
+        }
+
+        function downloadAndReload() {
+            downloadProject();
+            allowUnloadWithoutPrompt = true;
+            setTimeout(() => window.location.reload(), 350);
+        }
+
+        function forceReloadWithoutSaving() {
+            allowUnloadWithoutPrompt = true;
+            localStorage.removeItem('stem-electrical-autosave');
+            window.location.reload();
+        }
+
+        function checkAutoSaveOnStartup() {
+            try {
+                const autoStr = localStorage.getItem('stem-electrical-autosave');
+                if (!autoStr) return;
+                const autoData = JSON.parse(autoStr);
+                if ((autoData.nodes && autoData.nodes.length > 0) || autoData.bgImageBase64) {
+                    const banner = document.getElementById('recovery-banner');
+                    if (banner) banner.style.display = 'flex';
+                }
+            } catch (_) {}
+        }
+
+        function restoreAutoSave() {
+            const autoStr = localStorage.getItem('stem-electrical-autosave');
+            const banner = document.getElementById('recovery-banner');
+            if (banner) banner.style.display = 'none';
+            if (autoStr) {
+                applyDesignData(autoStr);
+            }
+        }
+
+        function dismissAutoSaveBanner() {
+            const banner = document.getElementById('recovery-banner');
+            if (banner) banner.style.display = 'none';
+            localStorage.removeItem('stem-electrical-autosave');
+        }
+
+        // --- OPTIMIZACIÓN DE IMÁGENES Y GALERÍA DE PLANOS BASE (Diseños/) ---
+
+        function optimizePlanImage(img, maxSide = 1600, quality = 0.82) {
+            const natW = img.naturalWidth || 1600;
+            const natH = img.naturalHeight || 1100;
+            const scale = Math.min(1, maxSide / Math.max(natW, natH));
+            const targetW = Math.max(400, Math.round(natW * scale));
+            const targetH = Math.max(300, Math.round(natH * scale));
+            try {
+                const offCanvas = document.createElement('canvas');
+                offCanvas.width = targetW;
+                offCanvas.height = targetH;
+                const oCtx = offCanvas.getContext('2d');
+                oCtx.fillStyle = '#ffffff';
+                oCtx.fillRect(0, 0, targetW, targetH);
+                oCtx.drawImage(img, 0, 0, targetW, targetH);
+                const compressedUrl = offCanvas.toDataURL('image/jpeg', quality);
+                return { dataUrl: compressedUrl, width: targetW, height: targetH };
+            } catch (err) {
+                // Fallback seguro si se ejecuta en protocolo local file://
+                return { dataUrl: img.src, width: targetW, height: targetH };
+            }
+        }
+
         function loadPlan(input) {
             const file = input.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (e) => {
-                bgImageBase64 = e.target.result;
+                const rawDataUrl = e.target.result;
                 const img = new Image();
                 img.onload = () => {
-                    const maxSide = 1600;
-                    const natW = img.naturalWidth || 1600;
-                    const natH = img.naturalHeight || 1100;
-                    const scale = maxSide / Math.max(natW, natH);
-                    setWorldDimensions(Math.round(natW * scale), Math.round(natH * scale));
-                    canvasBg.style.backgroundImage = `url(${bgImageBase64})`;
+                    pushUndoState();
+                    const opt = optimizePlanImage(img, 1600, 0.82);
+                    bgImageBase64 = opt.dataUrl;
+                    setWorldDimensions(opt.width, opt.height);
+                    canvasBg.style.backgroundImage = `url("${bgImageBase64}")`;
                     fitWorldToScreen();
                     closeMobileDrawers();
                     renderWorkspace();
+                    markProjectDirty();
                 };
-                img.src = bgImageBase64;
+                img.src = rawDataUrl;
             };
             reader.readAsDataURL(file);
+        }
+
+        function renderSamplePlansGallery() {
+            const grid = document.getElementById('sample-plans-grid');
+            if (!grid || grid.children.length > 0) return;
+            grid.innerHTML = SAMPLE_PLANS_CATALOG.map((item) => {
+                const safeUrl = encodeURI(item.file);
+                return `
+                    <div class="sample-plan-card" onclick="loadSamplePlan('${item.file}', '${item.title}', false)">
+                        <img class="sample-plan-thumb" src="${safeUrl}" alt="${item.title}" loading="lazy">
+                        <div class="sample-plan-info">
+                            <div>
+                                <div class="sample-plan-title">🏠 ${item.title}</div>
+                                <div class="sample-plan-desc">${item.desc}</div>
+                            </div>
+                            <button type="button" class="sample-plan-btn">Usar este Plano</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openSamplePlansModal() {
+            renderSamplePlansGallery();
+            const modal = document.getElementById('sample-plans-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeSamplePlansModal() {
+            const modal = document.getElementById('sample-plans-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function loadSamplePlan(filePath, planTitle, withDemoCircuit = false) {
+            if (nodes.length > 0 && withDemoCircuit) {
+                if (!confirm("Esto reemplazará los símbolos actuales en pantalla con el circuito de demostración. ¿Continuar?")) {
+                    return;
+                }
+            }
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                pushUndoState();
+                const opt = optimizePlanImage(img, 1600, 0.84);
+                bgImageBase64 = opt.dataUrl;
+                setWorldDimensions(opt.width, opt.height);
+                canvasBg.style.backgroundImage = `url("${bgImageBase64}")`;
+                if (!pxPerMeter) {
+                    pxPerMeter = Math.round(opt.width / 14); // Escala residencial pre-calibrada (~14m de frente)
+                }
+                projectMeta.name = planTitle || "Casa Modelo Cadelec";
+                const nameInp = document.getElementById('project-name-input');
+                if (nameInp) nameInp.value = projectMeta.name;
+
+                if (withDemoCircuit) {
+                    const cx = Math.round(opt.width * 0.5);
+                    const cy = Math.round(opt.height * 0.5);
+                    nodes = [
+                        { id: 1, type: 'board', x: Math.round(opt.width * 0.22), y: cy, power: 0, img: 'simbolos/Tablero.png', label: 'Tablero', circuits: 6, rounded: false, voltage: 120, loadType: '180_120', customScale: 1 },
+                        { id: 2, type: 'light', x: Math.round(opt.width * 0.42), y: Math.round(opt.height * 0.36), power: 60, img: 'simbolos/luminaria.png', label: 'Luz Sala', circuits: 0, rounded: true, voltage: 120, loadType: '180_120', customScale: 1 },
+                        { id: 3, type: 'switch', x: Math.round(opt.width * 0.34), y: Math.round(opt.height * 0.48), power: 0, img: 'simbolos/Interruptor sencillo.png', label: 'Int. Sala', circuits: 0, rounded: true, voltage: 120, loadType: '180_120', customScale: 1 },
+                        { id: 4, type: 'outlet', x: Math.round(opt.width * 0.45), y: Math.round(opt.height * 0.65), power: 180, img: 'simbolos/tomacorriente.png', label: 'Toma TV', circuits: 0, rounded: true, voltage: 120, loadType: '180_120', customScale: 1 },
+                        { id: 5, type: 'outlet', x: Math.round(opt.width * 0.66), y: Math.round(opt.height * 0.38), power: 1500, img: 'simbolos/tomacorriente.png', label: 'Toma Cocina', circuits: 0, rounded: true, voltage: 120, loadType: '1500_120', isGFCI: true, customScale: 1 },
+                        { id: 6, type: 'outlet', x: Math.round(opt.width * 0.74), y: Math.round(opt.height * 0.62), power: 8000, img: 'simbolos/tomacorriente.png', label: 'Estufa 240V', circuits: 0, rounded: true, voltage: 240, loadType: '8000_240', customScale: 1 }
+                    ];
+                    idCounter = 7;
+                    wires = [
+                        { from: 1, to: 2, phases: 1, neutrals: 1, grounds: 1, points: [{ x: Math.round(opt.width * 0.22), y: Math.round(opt.height * 0.36) }], routing: 'techo' },
+                        { from: 2, to: 3, phases: 2, neutrals: 0, grounds: 1, points: [], routing: 'pared' },
+                        { from: 2, to: 4, phases: 1, neutrals: 1, grounds: 1, points: [], routing: 'pared' },
+                        { from: 1, to: 5, phases: 1, neutrals: 1, grounds: 1, points: [{ x: Math.round(opt.width * 0.55), y: cy }], routing: 'pared' },
+                        { from: 1, to: 6, phases: 2, neutrals: 0, grounds: 1, points: [{ x: Math.round(opt.width * 0.22), y: Math.round(opt.height * 0.75) }, { x: Math.round(opt.width * 0.74), y: Math.round(opt.height * 0.75) }], routing: 'piso' }
+                    ];
+                }
+
+                closeSamplePlansModal();
+                closeMobileDrawers();
+                fitWorldToScreen();
+                analyzeSystem();
+                markProjectDirty();
+            };
+            img.onerror = () => {
+                alert("No se pudo cargar el plano de ejemplo desde la carpeta Diseños/. Verifica que la carpeta 'Diseños' esté junto a app.html.");
+            };
+            img.src = encodeURI(filePath);
         }
 
         let showLegend = false;
@@ -1612,10 +2110,12 @@ const SYMBOLS_B64 = {
                 customScale: 1
             };
 
+            pushUndoState();
             nodes.push(node);
             setMode('select');
             selectNode(node.id); 
             analyzeSystem();
+            markProjectDirty();
         }
 
         let renderPending = false;
@@ -1783,11 +2283,13 @@ const SYMBOLS_B64 = {
                         if (isPinching) return;
                         if (mode === 'erase') {
                             e.stopPropagation();
+                            pushUndoState();
                             wires.splice(index, 1);
                             selectedWireIndex = null;
                             propPanel.style.display = 'none';
                             updateMobilePropPill();
                             analyzeSystem();
+                            markProjectDirty();
                         } else if (mode === 'select') {
                             e.stopPropagation();
                             selectWire(index);
@@ -1810,13 +2312,16 @@ const SYMBOLS_B64 = {
                                 vCircle.onpointerdown = (ev) => {
                                     if (isPinching) return;
                                     ev.stopPropagation();
+                                    pushUndoState();
                                     draggedVertex = { wireIndex: index, pointIndex: ptIdx };
                                     workspace.setPointerCapture(ev.pointerId);
                                 };
                                 vCircle.ondblclick = (ev) => {
                                     ev.stopPropagation();
+                                    pushUndoState();
                                     wire.points.splice(ptIdx, 1);
                                     analyzeSystem();
+                                    markProjectDirty();
                                 };
                                 wireLayer.appendChild(vCircle);
                             });
@@ -1857,6 +2362,7 @@ const SYMBOLS_B64 = {
                             midGroup.onpointerdown = (ev) => {
                                 if (isPinching) return;
                                 ev.stopPropagation();
+                                pushUndoState();
                                 if (!wire.points) wire.points = [];
                                 wire.points.splice(segIdx, 0, { x: Math.round(midX), y: Math.round(midY) });
                                 draggedVertex = { wireIndex: index, pointIndex: segIdx };
@@ -2158,9 +2664,17 @@ const SYMBOLS_B64 = {
 
                 const node = nodes.find(n => n.id === draggedNode);
                 if (node) {
-                    node.x = Math.round(newX);
-                    node.y = Math.round(newY);
-                    renderWorkspace();
+                    const rx = Math.round(newX);
+                    const ry = Math.round(newY);
+                    if (node.x !== rx || node.y !== ry) {
+                        if (!draggedNodeUndoRecorded) {
+                            pushUndoState();
+                            draggedNodeUndoRecorded = true;
+                        }
+                        node.x = rx;
+                        node.y = ry;
+                        renderWorkspace();
+                    }
                 }
             }
 
@@ -2259,11 +2773,13 @@ const SYMBOLS_B64 = {
             analyzeSystem();
         }
 
+        let draggedNodeUndoRecorded = false;
         function handleNodePointerDown(e, id) {
             if (isPinching) return;
             e.stopPropagation();
             if (mode === 'select') {
                 draggedNode = id;
+                draggedNodeUndoRecorded = false;
                 workspace.setPointerCapture(e.pointerId);
                 selectNode(id);
             } else if (mode === 'erase') {
@@ -2282,10 +2798,13 @@ const SYMBOLS_B64 = {
         const handlePointerUp = (e) => {
             if (draggedNode !== null) {
                 draggedNode = null;
+                if (draggedNodeUndoRecorded) markProjectDirty();
+                draggedNodeUndoRecorded = false;
                 analyzeSystem();
             }
             if (draggedVertex !== null) {
                 draggedVertex = null;
+                markProjectDirty();
                 analyzeSystem();
             }
             if (isPanning) {
@@ -2336,6 +2855,7 @@ const SYMBOLS_B64 = {
                             (w.to === wireStartNodeId && w.from === id)
                         );
                         if (!exists) {
+                            pushUndoState();
                             wires.push({ 
                                 from: wireStartNodeId, 
                                 to: id, 
@@ -2345,6 +2865,7 @@ const SYMBOLS_B64 = {
                                 points: [...tempWirePoints],
                                 routing: 'pared'
                             }); 
+                            markProjectDirty();
                         }
                     }
                     wireStartNodeId = null;
@@ -2437,9 +2958,11 @@ const SYMBOLS_B64 = {
 
         function resetSelectedWireCorners() {
             if (selectedWireIndex !== null && wires[selectedWireIndex]) {
+                pushUndoState();
                 wires[selectedWireIndex].points = [];
                 analyzeSystem();
                 selectWire(selectedWireIndex);
+                markProjectDirty();
             }
         }
 
@@ -2447,6 +2970,7 @@ const SYMBOLS_B64 = {
             if (selectedNodeId) {
                 const node = nodes.find(n => n.id === selectedNodeId);
                 if (node && node.type === 'outlet') {
+                    pushUndoState();
                     const type = propOutletType.value;
                     node.loadType = type;
                     if (type !== 'custom') {
@@ -2459,6 +2983,7 @@ const SYMBOLS_B64 = {
                     document.getElementById('prop-power').value = node.power;
                     document.getElementById('prop-voltage').value = (node.voltage || 120).toString();
                     analyzeSystem();
+                    markProjectDirty();
                 }
             }
         }
@@ -2484,11 +3009,13 @@ const SYMBOLS_B64 = {
                     }
                 }
                 analyzeSystem();
+                markProjectDirty();
             }
         }
 
         function updateSelectedWire() {
             if (selectedWireIndex !== null) {
+                pushUndoState();
                 let p = parseInt(document.getElementById('prop-wire-fases').value);
                 let n = parseInt(document.getElementById('prop-wire-neutros').value);
                 let t = parseInt(document.getElementById('prop-wire-tierras').value);
@@ -2504,10 +3031,14 @@ const SYMBOLS_B64 = {
                 wires[selectedWireIndex].routing = routing;
                 
                 renderWorkspace();
+                markProjectDirty();
             }
         }
 
         function deleteSelectedElement() {
+            if (selectedNodeId !== null || selectedWireIndex !== null) {
+                pushUndoState();
+            }
             if (selectedNodeId !== null) {
                 nodes = nodes.filter(n => n.id !== selectedNodeId);
                 wires = wires.filter(w => w.from !== selectedNodeId && w.to !== selectedNodeId);
@@ -2519,10 +3050,12 @@ const SYMBOLS_B64 = {
             propPanel.style.display = 'none';
             updateMobilePropPill();
             analyzeSystem();
+            markProjectDirty();
         }
 
         function clearWorkspace() {
             if (confirm("¿Estás seguro que deseas eliminar todo el diseño y el plano?")) {
+                pushUndoState();
                 nodes = [];
                 wires = [];
                 idCounter = 1;
@@ -2539,6 +3072,9 @@ const SYMBOLS_B64 = {
                 updateMobilePropPill();
                 fitWorldToScreen();
                 analyzeSystem();
+                localStorage.removeItem('stem-electrical-autosave');
+                hasUnsavedChanges = false;
+                updateAutosaveBadge('saved');
             }
         }
 
@@ -2785,7 +3321,47 @@ const SYMBOLS_B64 = {
             });
         }
 
-        // --- SISTEMAS DE EXPORTACIÓN ---
+        // --- SISTEMAS DE EXPORTACIÓN Y COMPARTIR (MÓVIL / WHATSAPP / PC) ---
+
+        function downloadBlobFile(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function shareOrDownloadCanvas(canvas, filename, shareTitle, shareMode = false) {
+            if (shareMode && navigator.canShare && canvas.toBlob) {
+                try {
+                    canvas.toBlob(async (blob) => {
+                        if (!blob) {
+                            triggerDownload(canvas, filename);
+                            return;
+                        }
+                        const file = new File([blob], filename, { type: 'image/png' });
+                        if (navigator.canShare({ files: [file] })) {
+                            try {
+                                await navigator.share({
+                                    title: shareTitle,
+                                    text: `${shareTitle} — Generado con CADELEC FAST Web`,
+                                    files: [file]
+                                });
+                                return;
+                            } catch (err) {
+                                if (err && err.name === 'AbortError') return;
+                            }
+                        }
+                        downloadBlobFile(blob, filename);
+                    }, 'image/png');
+                    return;
+                } catch (_) {}
+            }
+            triggerDownload(canvas, filename);
+        }
 
         function exportCSV() {
             if (globalCircuits.length === 0) {
@@ -2793,8 +3369,11 @@ const SYMBOLS_B64 = {
                 return;
             }
 
-            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-            csvContent += "ID Circuito,Origen,Voltaje (V),Corriente Diseno (A),Vias (Polos),Breaker (A),Cable Minimo (AWG),Caida de Tension (%),Potencia Total (W), Tuberia Estimada (Metros)\n";
+            let csvLines = [];
+            const pName = (projectMeta && projectMeta.name) ? projectMeta.name.replace(/;/g, ',') : "Proyecto Residencial";
+            const pAuthor = (projectMeta && projectMeta.author) ? projectMeta.author.replace(/;/g, ',') : "No especificado";
+            csvLines.push(`"Proyecto";"${pName}";"Autor / Electricista";"${pAuthor}"`);
+            csvLines.push(`"ID Circuito";"Origen";"Voltaje (V)";"Corriente Diseno (A)";"Vias (Polos)";"Breaker (A)";"Cable Minimo (AWG)";"Caida de Tension (%)";"Potencia Total (W)";"Tuberia Estimada (Metros)"`);
 
             globalCircuits.forEach(c => {
                 let isSuccess = c.board !== null;
@@ -2803,62 +3382,159 @@ const SYMBOLS_B64 = {
                 let breaker = getBreaker(c.current);
                 let voltage = c.has240V ? "240V" : "120V";
                 if (c.isMixedVoltage) voltage = "MEZCLADO (ERROR)";
-                let meters = pxPerMeter ? c.totalMeters.toFixed(2) : "No Calibrado";
+                let meters = pxPerMeter ? c.totalMeters.toFixed(2).replace('.', ',') : "No Calibrado";
 
-                csvContent += `C-${c.id},${title},${voltage},${c.current.toFixed(2)},${c.slotsNeeded},${breaker},${awg},${c.vDropPercent.toFixed(2)}%,${c.power},${meters}\n`;
+                csvLines.push(`"C-${c.id}";"${title}";"${voltage}";"${c.current.toFixed(2).replace('.', ',')}";"${c.slotsNeeded}";"${breaker}";"${awg}";"${c.vDropPercent.toFixed(2).replace('.', ',')}%";"${c.power}";"${meters}"`);
             });
 
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "Cuadro_de_Cargas_RETIE.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const blob = new Blob(["\uFEFF" + csvLines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+            downloadBlobFile(blob, `Cuadro_Cargas_${getProjectSlug()}.csv`);
         }
 
-        function exportImage() {
-            const canvas = document.createElement('canvas');
-            const wW = worldWidth || 1600;
-            const wH = worldHeight || 1100;
+        function drawTitleBlockFooter(ctx, totalWidth, footerY, footerHeight) {
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, footerY, totalWidth, footerHeight);
+
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, footerY);
+            ctx.lineTo(totalWidth, footerY);
+            ctx.stroke();
+
+            const projTitle = (projectMeta && projectMeta.name) ? projectMeta.name : 'Diseño Eléctrico Residencial';
+            const authorTxt = (projectMeta && projectMeta.author) ? `Diseñador: ${projectMeta.author}` : 'Normativa de Referencia: NTC 2050 / RETIE';
+            const totalW = nodes.reduce((acc, n) => acc + (n.power || 0), 0);
+            const dateStr = new Date().toLocaleDateString('es-CO');
+
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 16px Segoe UI, Arial';
+            ctx.fillText(`⚡ ${projTitle}`, 20, footerY + 21);
+
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = '13px Segoe UI, Arial';
+            ctx.fillText(`${authorTxt}  |  Carga Instalada: ${totalW.toLocaleString('es-CO')} W  |  Circuitos: ${globalCircuits.length}  |  Fecha: ${dateStr}`, 20, footerY + 44);
+
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#f1c40f';
+            ctx.font = 'bold 14px Segoe UI, Arial';
+            ctx.fillText('Diseñado con CADELEC FAST Web — Simulador Eléctrico RETIE', totalWidth - 20, footerY + 32);
+        }
+
+        function exportImage(shareMode = false) {
+            if (nodes.length === 0 && !bgImageBase64) {
+                alert("Agrega componentes o un plano antes de exportar la imagen.");
+                return;
+            }
+
             const legendWidth = 320;
-            canvas.width = wW + legendWidth;
-            canvas.height = Math.max(wH, 600);
+            const footerHeight = 62;
+            let cropOffsetX = 0;
+            let cropOffsetY = 0;
+            let drawW = worldWidth || 1600;
+            let drawH = worldHeight || 1100;
+
+            // Smart Crop: Si no hay plano de fondo, recortar inteligentemente alrededor de los símbolos colocados
+            if (!bgImageBase64 && nodes.length > 0) {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                nodes.forEach(n => {
+                    minX = Math.min(minX, n.x);
+                    minY = Math.min(minY, n.y);
+                    maxX = Math.max(maxX, n.x);
+                    maxY = Math.max(maxY, n.y);
+                });
+                wires.forEach(w => {
+                    (w.points || []).forEach(p => {
+                        minX = Math.min(minX, p.x);
+                        minY = Math.min(minY, p.y);
+                        maxX = Math.max(maxX, p.x);
+                        maxY = Math.max(maxY, p.y);
+                    });
+                });
+                const pad = 110;
+                cropOffsetX = Math.max(0, Math.floor(minX - pad));
+                cropOffsetY = Math.max(0, Math.floor(minY - pad));
+                drawW = Math.max(780, Math.ceil((maxX - cropOffsetX) + pad));
+                drawH = Math.max(540, Math.ceil((maxY - cropOffsetY) + pad));
+            }
+
+            const mainHeight = Math.max(drawH, 580);
+            const canvas = document.createElement('canvas');
+            canvas.width = drawW + legendWidth;
+            canvas.height = mainHeight + footerHeight;
             const ctx = canvas.getContext('2d');
 
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw separator line
-            ctx.beginPath();
-            ctx.moveTo(wW, 0);
-            ctx.lineTo(wW, canvas.height);
-            ctx.strokeStyle = '#cccccc';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            
+            const renderSceneToCanvas = async (includeBackgroundImg) => {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                if (includeBackgroundImg) {
+                    ctx.globalAlpha = 0.45;
+                    ctx.drawImage(includeBackgroundImg, 0, 0, drawW, drawH);
+                    ctx.globalAlpha = 1.0;
+                } else {
+                    // Dibujar cuadrícula técnica suave cuando no hay imagen de fondo
+                    ctx.strokeStyle = 'rgba(52, 152, 219, 0.14)';
+                    ctx.lineWidth = 1;
+                    for (let gx = 0; gx <= drawW; gx += 25) {
+                        ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, mainHeight); ctx.stroke();
+                    }
+                    for (let gy = 0; gy <= mainHeight; gy += 25) {
+                        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(drawW, gy); ctx.stroke();
+                    }
+                }
+
+                ctx.save();
+                ctx.translate(-cropOffsetX, -cropOffsetY);
+                await drawOverlay(canvas, ctx);
+                ctx.restore();
+
+                // Separador de leyenda
+                ctx.beginPath();
+                ctx.moveTo(drawW, 0);
+                ctx.lineTo(drawW, mainHeight);
+                ctx.strokeStyle = '#cccccc';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                await drawLegend(ctx, drawW, legendWidth, mainHeight);
+                drawTitleBlockFooter(ctx, canvas.width, mainHeight, footerHeight);
+            };
+
+            const filename = `Plano_${getProjectSlug()}.png`;
+            const shareTitle = (projectMeta && projectMeta.name) ? projectMeta.name : 'Plano Eléctrico RETIE';
+
             if (bgImageBase64) {
                 const img = new Image();
+                img.crossOrigin = "anonymous";
                 img.onload = async () => {
-                    ctx.globalAlpha = 0.45;
-                    ctx.drawImage(img, 0, 0, wW, wH);
-                    ctx.globalAlpha = 1.0;
-                    await drawOverlay(canvas, ctx);
-                    await drawLegend(ctx, wW, legendWidth, canvas.height);
-                    triggerDownload(canvas);
+                    await renderSceneToCanvas(img);
+                    try {
+                        // Verificar si el canvas no fue bloqueado por políticas file:// locales
+                        canvas.toDataURL('image/png');
+                        shareOrDownloadCanvas(canvas, filename, shareTitle, shareMode);
+                    } catch (secErr) {
+                        await renderSceneToCanvas(null);
+                        shareOrDownloadCanvas(canvas, filename, shareTitle, shareMode);
+                    }
+                };
+                img.onerror = async () => {
+                    await renderSceneToCanvas(null);
+                    shareOrDownloadCanvas(canvas, filename, shareTitle, shareMode);
                 };
                 img.src = bgImageBase64;
             } else {
-                drawOverlay(canvas, ctx).then(async () => {
-                    await drawLegend(ctx, wW, legendWidth, canvas.height);
-                    triggerDownload(canvas);
+                renderSceneToCanvas(null).then(() => {
+                    shareOrDownloadCanvas(canvas, filename, shareTitle, shareMode);
                 });
             }
         }
 
-        function triggerDownload(canvas) {
+        function triggerDownload(canvas, filename = 'Plano_Instalacion_Electrica.png') {
             const link = document.createElement('a');
-            link.download = 'Plano_Instalacion_Electrica.png';
+            link.download = filename;
             link.href = canvas.toDataURL('image/png');
             link.click();
         }
@@ -3171,7 +3847,7 @@ const SYMBOLS_B64 = {
             }
         }
 
-        // --- SISTEMA DE GUARDADO (LocalStorage) ---
+        // --- SISTEMA DE GUARDADO (LocalStorage y Archivos .JSON) ---
 
         function saveDesign() {
             if (nodes.length === 0 && !bgImageBase64) {
@@ -3180,37 +3856,43 @@ const SYMBOLS_B64 = {
             }
             
             try {
-                const data = {
-                    nodes,
-                    wires,
-                    idCounter,
-                    bgImageBase64,
-                    pxPerMeter,
-                    projectPrices,
-                    customCosts,
-                    taxConfig,
-                    worldWidth,
-                    worldHeight,
-                    symbolScale,
-                    showNodeCaptions
-                };
+                const data = buildProjectSnapshot(true);
                 localStorage.setItem('stem-electrical-pro', JSON.stringify(data));
+                localStorage.removeItem('stem-electrical-autosave');
+                hasUnsavedChanges = false;
+                updateAutosaveBadge('saved');
                 
                 const btn = document.querySelector('.btn-save');
-                const originalText = btn.innerText;
-                btn.innerText = "¡Guardado!";
-                setTimeout(() => btn.innerText = originalText, 1500);
+                if (btn) {
+                    const originalText = btn.innerText;
+                    btn.innerText = "✅ ¡Guardado!";
+                    setTimeout(() => btn.innerText = originalText, 1600);
+                }
             } catch(e) {
-                alert("Error al guardar. Si cargaste un plano, es posible que el archivo de imagen sea demasiado grande para el almacenamiento local del navegador.");
+                // Si el plano excede la cuota de LocalStorage, guardar el diseño sin el fondo pesado y ofrecer descarga JSON
+                try {
+                    const lightData = buildProjectSnapshot(false);
+                    localStorage.setItem('stem-electrical-pro', JSON.stringify(lightData));
+                    hasUnsavedChanges = false;
+                    updateAutosaveBadge('saved');
+                    alert("Se guardaron todos los circuitos y símbolos en el navegador. Como el plano de fondo es de alta resolución, usa '⬇️ Bajar .JSON' si deseas respaldar también la imagen completa.");
+                } catch (err2) {
+                    alert("El almacenamiento local del navegador está lleno. Usa el botón '⬇️ Bajar .JSON' para guardar el archivo en tu dispositivo.");
+                }
             }
         }
 
         function loadDesign() {
-            const dataStr = localStorage.getItem('stem-electrical-pro');
+            const dataStr = localStorage.getItem('stem-electrical-pro') || localStorage.getItem('stem-electrical-autosave');
             if (dataStr) {
+                if (hasUnsavedChanges && (nodes.length > 0 || bgImageBase64)) {
+                    if (!confirm("Tienes cambios actuales en pantalla. ¿Deseas reemplazarlos con el diseño guardado en el navegador?")) {
+                        return;
+                    }
+                }
                 applyDesignData(dataStr);
             } else {
-                alert('No tienes ningún diseño guardado previamente en el navegador.');
+                alert('No tienes ningún diseño guardado previamente en este navegador.');
             }
         }
 
@@ -3219,31 +3901,13 @@ const SYMBOLS_B64 = {
                 alert("No hay elementos para exportar.");
                 return;
             }
-            const data = {
-                nodes,
-                wires,
-                idCounter,
-                bgImageBase64,
-                pxPerMeter,
-                projectPrices,
-                customCosts,
-                taxConfig,
-                worldWidth,
-                worldHeight,
-                symbolScale,
-                showNodeCaptions
-            };
+            const data = buildProjectSnapshot(true);
             const jsonStr = JSON.stringify(data);
             const blob = new Blob([jsonStr], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'proyecto_electrico.json';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            downloadBlobFile(blob, `Proyecto_${getProjectSlug()}.json`);
+            hasUnsavedChanges = false;
+            localStorage.removeItem('stem-electrical-autosave');
+            updateAutosaveBadge('saved');
         }
 
         function uploadProject(input) {
@@ -3263,15 +3927,28 @@ const SYMBOLS_B64 = {
         function applyDesignData(dataStr) {
             try {
                 const data = JSON.parse(dataStr);
+                pushUndoState();
                 nodes = data.nodes || [];
                 wires = data.wires || [];
                 idCounter = data.idCounter || 1;
-                bgImageBase64 = data.bgImageBase64 || null;
+                if (data.bgImageBase64 !== undefined) {
+                    bgImageBase64 = data.bgImageBase64 || null;
+                }
                 pxPerMeter = data.pxPerMeter || null;
                 
                 if (data.projectPrices) projectPrices = data.projectPrices;
                 if (data.customCosts) customCosts = data.customCosts;
                 if (data.taxConfig) taxConfig = data.taxConfig;
+                if (data.projectMeta) {
+                    projectMeta = {
+                        name: data.projectMeta.name || "Proyecto Eléctrico Residencial",
+                        author: data.projectMeta.author || ""
+                    };
+                    const nameInp = document.getElementById('project-name-input');
+                    const authInp = document.getElementById('project-author-input');
+                    if (nameInp) nameInp.value = projectMeta.name;
+                    if (authInp) authInp.value = projectMeta.author;
+                }
                 if (typeof data.symbolScale === 'number') {
                     symbolScale = Math.max(0.35, Math.min(2.0, data.symbolScale));
                     updateSymbolScaleUI();
@@ -3288,7 +3965,7 @@ const SYMBOLS_B64 = {
                 }
                 
                 if (bgImageBase64) {
-                    canvasBg.style.backgroundImage = `url(${bgImageBase64})`;
+                    canvasBg.style.backgroundImage = `url("${bgImageBase64}")`;
                     if (!data.worldWidth || !data.worldHeight) {
                         const img = new Image();
                         img.onload = () => {
@@ -3339,6 +4016,8 @@ const SYMBOLS_B64 = {
                 fitWorldToScreen();
                 
                 analyzeSystem();
+                hasUnsavedChanges = false;
+                updateAutosaveBadge('saved');
                 return true;
             } catch (e) {
                 alert('Hubo un error al intentar cargar el archivo. Asegúrate de que sea un archivo de proyecto válido (.json).');
@@ -3620,9 +4299,19 @@ const SYMBOLS_B64 = {
             if (!currentBomCache) return;
             
             let bom = currentBomCache;
+            const pTitle = (projectMeta && projectMeta.name) ? projectMeta.name : 'Proyecto Eléctrico Residencial';
+            const pAuthor = (projectMeta && projectMeta.author) ? ` | Electricista: ${projectMeta.author}` : '';
+            const dateStr = new Date().toLocaleDateString('es-CO');
             
             let html = `
-                <div style="max-height: 55vh; overflow-y: auto; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                <div style="background:#2c3e50; color:#fff; padding:10px 14px; border-radius:6px 6px 0 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                    <div>
+                        <strong style="font-size:1rem;">⚡ ${pTitle}</strong>
+                        <div style="font-size:0.78rem; color:#cbd5e1;">Fecha: ${dateStr}${pAuthor}</div>
+                    </div>
+                    <span style="font-size:0.75rem; background:#f1c40f; color:#2c3e50; padding:3px 8px; border-radius:4px; font-weight:bold;">CADELEC FAST Web</span>
+                </div>
+                <div style="max-height: 50vh; overflow-y: auto; margin-bottom: 15px; border: 1px solid #ddd; border-top:none; border-radius: 0 0 4px 4px;">
                 <table class="balance-table" style="width: 100%; margin-top: 0; border: none;">
                     <thead style="position: sticky; top: 0; z-index: 10;">
                         <tr>
@@ -3756,11 +4445,11 @@ const SYMBOLS_B64 = {
 
         function exportMaterialsCSV() {
             if (!currentBomCache) return;
-            // Usamos punto y coma para separar columnas en Excel en español
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Material / Item;Cant.;Valor Unit. (COP);Subtotal\r\n";
+            const pTitle = (projectMeta && projectMeta.name) ? projectMeta.name.replace(/;/g, ',') : 'Proyecto Residencial';
+            const pAuthor = (projectMeta && projectMeta.author) ? projectMeta.author.replace(/;/g, ',') : 'No especificado';
+            let csvText = `"Proyecto";"${pTitle}";"Autor";"${pAuthor}"\r\n`;
+            csvText += "Material / Item;Cant.;Valor Unit. (COP);Subtotal\r\n";
             
-            // Función auxiliar para formatear números al estilo Excel español (coma decimal, sin separador de miles)
             const fmt = (num) => {
                 if(num === undefined || num === null) return "0";
                 return num.toFixed(2).replace('.', ',');
@@ -3773,7 +4462,7 @@ const SYMBOLS_B64 = {
                     let price = currentBomCache[item].price;
                     let sub = qtyNum * price;
                     subtotalDirecto += sub;
-                    csvContent += `"${item}";"${fmt(qtyNum)}";"${fmt(price)}";"${fmt(sub)}"\r\n`;
+                    csvText += `"${item}";"${fmt(qtyNum)}";"${fmt(price)}";"${fmt(sub)}"\r\n`;
                 }
             });
 
@@ -3782,30 +4471,32 @@ const SYMBOLS_B64 = {
                 let sub = cost.qty * cost.price;
                 subtotalAdicionales += sub;
                 let desc = cost.desc ? cost.desc.replace(/"/g, '""') : 'Concepto Extra';
-                csvContent += `"${desc}";"${fmt(cost.qty)}";"${fmt(cost.price)}";"${fmt(sub)}"\r\n`;
+                csvText += `"${desc}";"${fmt(cost.qty)}";"${fmt(cost.price)}";"${fmt(sub)}"\r\n`;
             });
 
             let subtotalGeneral = subtotalDirecto + subtotalAdicionales;
             let taxAmount = taxConfig.applyTax ? subtotalGeneral * (taxConfig.rate / 100) : 0;
             let grandTotal = subtotalGeneral + taxAmount;
 
-            csvContent += `\r\n"Subtotal Neto";;;"${fmt(subtotalGeneral)}"\r\n`;
+            csvText += `\r\n"Subtotal Neto";;;"${fmt(subtotalGeneral)}"\r\n`;
             if(taxConfig.applyTax) {
-                csvContent += `"IVA (${taxConfig.rate}%)";;;"${fmt(taxAmount)}"\r\n`;
+                csvText += `"IVA (${taxConfig.rate}%)";;;"${fmt(taxAmount)}"\r\n`;
             }
-            csvContent += `"TOTAL";;;"${fmt(grandTotal)}"\r\n`;
+            csvText += `"TOTAL";;;"${fmt(grandTotal)}"\r\n`;
 
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "presupuesto_simulador.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const blob = new Blob(["\uFEFF" + csvText], { type: "text/csv;charset=utf-8;" });
+            downloadBlobFile(blob, `Presupuesto_${getProjectSlug()}.csv`);
         }
 
-        function exportMaterialsImage() {
+        function exportMaterialsImage(shareMode = false) {
             const resultsContainer = document.getElementById('materials-results');
+            const scrollBox = resultsContainer.querySelector('div[style*="max-height"]');
+            const prevMaxHeight = scrollBox ? scrollBox.style.maxHeight : '';
+            const prevOverflow = scrollBox ? scrollBox.style.overflowY : '';
+            if (scrollBox) {
+                scrollBox.style.maxHeight = 'none';
+                scrollBox.style.overflowY = 'visible';
+            }
             
             // Reemplazar visualmente los inputs por span temporales para que se rendericen bien en la imagen
             const inputs = resultsContainer.querySelectorAll('input');
@@ -3816,12 +4507,11 @@ const SYMBOLS_B64 = {
                 if(input.type === 'checkbox') {
                     span.innerText = input.checked ? "[X] IVA" : "[ ] IVA";
                 } else {
-                    // Formatear si es número de precio o cantidad
                     if(input.type === 'number' && input.value !== "") {
                         if(input.style.width === '50px') {
-                            span.innerText = parseFloat(input.value).toFixed(0); // Cantidades o %
+                            span.innerText = parseFloat(input.value).toFixed(0);
                         } else {
-                            span.innerText = "$" + parseFloat(input.value).toLocaleString('es-CO'); // Precios
+                            span.innerText = "$" + parseFloat(input.value).toLocaleString('es-CO');
                         }
                     } else {
                         span.innerText = input.value || "Concepto";
@@ -3848,28 +4538,54 @@ const SYMBOLS_B64 = {
 
             // Capturar
             html2canvas(resultsContainer, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-                // Restaurar inputs
+                if (scrollBox) {
+                    scrollBox.style.maxHeight = prevMaxHeight;
+                    scrollBox.style.overflowY = prevOverflow;
+                }
                 originalParents.forEach(item => {
                     item.parent.replaceChild(item.input, item.span);
                 });
-                // Restaurar botones
                 hiddenBtns.forEach(btn => {
                     btn.style.display = '';
                 });
                 
-                const link = document.createElement('a');
-                link.download = 'cotizacion_simulador.png';
-                link.href = canvas.toDataURL("image/png");
-                link.click();
+                const filename = `Cotizacion_${getProjectSlug()}.png`;
+                const shareTitle = `Cotización Eléctrica - ${(projectMeta && projectMeta.name) ? projectMeta.name : 'Cadelec Fast'}`;
+                shareOrDownloadCanvas(canvas, filename, shareTitle, shareMode);
             });
         }
 
 
-        // --- SOPORTE DE TECLADO ---
+        // --- SOPORTE DE TECLADO (Supr, Undo/Redo Ctrl+Z / Ctrl+Y, y Confirmación de Recarga F5 / Ctrl+R) ---
         document.addEventListener('keydown', (e) => {
+            const tag = e.target.tagName ? e.target.tagName.toLowerCase() : '';
+            const isInput = (tag === 'input' || tag === 'select' || tag === 'textarea');
+
+            // Interceptar F5 o Ctrl+R / Cmd+R cuando hay cambios sin guardar para mostrar el modal de guardado rápido
+            if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
+                if (hasUnsavedChanges && (nodes.length > 0 || bgImageBase64)) {
+                    e.preventDefault();
+                    const reloadModal = document.getElementById('reload-confirm-modal');
+                    if (reloadModal) reloadModal.style.display = 'flex';
+                    return;
+                }
+            }
+
+            if (isInput) return;
+
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) redoAction();
+                else undoAction();
+                return;
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+                e.preventDefault();
+                redoAction();
+                return;
+            }
+
             if (e.key === 'Delete' || e.key === 'Backspace') {
-                const tag = e.target.tagName ? e.target.tagName.toLowerCase() : '';
-                if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
                 if (mode === 'wire' && wireStartNodeId && tempWirePoints.length > 0 && e.key === 'Backspace') {
                     e.preventDefault();
                     undoLastWireCorner();
@@ -3881,13 +4597,14 @@ const SYMBOLS_B64 = {
             }
         });
 
-        // Iniciar escenario invariante (#world-stage) y encuadrar cámara
+        // Iniciar escenario invariante (#world-stage), encuadrar cámara y verificar auto-recuperación
         setWorldDimensions(1600, 1100);
         requestAnimationFrame(() => {
             fitWorldToScreen();
             const r = workspace.getBoundingClientRect();
             lastWorkspaceSize = { w: r.width, h: r.height };
             analyzeSystem();
+            checkAutoSaveOnStartup();
         });
 
     </script>
