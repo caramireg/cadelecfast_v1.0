@@ -206,20 +206,36 @@
         .btn-save { background-color: var(--success); }
         .btn-load { background-color: var(--primary); }
 
-        /* Lienzo de Dibujo */
+        /* Lienzo de Dibujo (Viewport / Cámara Táctil) */
         .workspace {
             flex: 1;
             position: relative;
+            background-color: #dfe6e9;
+            overflow: hidden;
+            cursor: crosshair;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Escenario de Coordenadas Fijas (Anclado 1:1 con el plano y símbolos) */
+        #world-stage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1600px;
+            height: 1100px;
+            transform-origin: 0 0;
             background-color: #ffffff;
             background-image: 
                 linear-gradient(var(--grid-color) 1px, transparent 1px),
                 linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
             background-size: 20px 20px;
-            overflow: hidden;
-            cursor: crosshair;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+            will-change: transform;
         }
 
-        /* Capa de plano arquitectónico */
+        /* Capa de plano arquitectónico (Sincronizada exactamente al 100% de #world-stage) */
         #canvas-bg {
             position: absolute;
             top: 0;
@@ -227,10 +243,10 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            opacity: 0.4;
-            background-size: contain;
+            opacity: 0.45;
+            background-size: 100% 100%;
             background-repeat: no-repeat;
-            background-position: center;
+            background-position: 0 0;
             z-index: 0;
         }
 
@@ -243,21 +259,53 @@
             height: 100%;
             pointer-events: none;
             z-index: 1;
+            overflow: visible;
         }
 
         .wire {
             stroke: #2c3e50;
             stroke-linecap: round;
-            transition: stroke-width 0.2s, opacity 0.2s;
+            stroke-linejoin: round;
+            transition: stroke-width 0.15s, opacity 0.15s;
+        }
+
+        .wire-hit-area {
+            fill: none;
+            stroke: transparent;
+            stroke-width: 24px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            pointer-events: stroke;
+            cursor: pointer;
         }
 
         .wire-group:hover .wire, .wire-group:hover .wire-mark {
             stroke-width: 6 !important;
-            opacity: 0.7;
+            opacity: 0.85;
             cursor: pointer;
         }
         .wire-group {
             pointer-events: stroke;
+        }
+
+        /* Tiradores táctiles para vértices y puntos medios de cables */
+        .wire-vertex {
+            fill: #ffffff;
+            stroke: var(--accent);
+            stroke-width: 3px;
+            cursor: move;
+            pointer-events: all;
+            transition: transform 0.15s;
+        }
+        .wire-midpoint-handle {
+            cursor: pointer;
+            pointer-events: all;
+        }
+        .wire-midpoint-circle {
+            fill: var(--accent);
+            stroke: #ffffff;
+            stroke-width: 2.5px;
+            opacity: 0.92;
         }
 
         /* Nodos (Componentes) */
@@ -274,8 +322,10 @@
             font-size: 1.4rem;
             cursor: grab;
             user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
             z-index: 2;
-            transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%) scale(var(--node-scale, 1));
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             transition: border-color 0.2s, box-shadow 0.2s;
         }
@@ -288,12 +338,19 @@
 
         .node.selected {
             border-color: var(--accent) !important;
-            box-shadow: 0 0 10px rgba(52, 152, 219, 0.8) !important;
+            box-shadow: 0 0 12px rgba(52, 152, 219, 0.9) !important;
+            z-index: 5;
         }
 
         .node.wiring {
-            border-color: var(--danger);
-            box-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
+            border-color: var(--danger) !important;
+            box-shadow: 0 0 14px rgba(231, 76, 60, 0.95) !important;
+            animation: pulseWiring 1s infinite alternate;
+        }
+
+        @keyframes pulseWiring {
+            from { box-shadow: 0 0 6px rgba(231, 76, 60, 0.7); }
+            to { box-shadow: 0 0 18px rgba(231, 76, 60, 1); }
         }
 
         .node .label {
@@ -301,13 +358,246 @@
             bottom: -25px;
             font-size: 0.7rem;
             font-weight: bold;
-            background: rgba(255,255,255,0.9);
+            background: rgba(255,255,255,0.92);
             padding: 2px 6px;
             border-radius: 4px;
             border: 1px solid #ddd;
             white-space: nowrap;
             pointer-events: none;
             color: #333;
+        }
+
+        .hide-node-captions .node .label {
+            display: none !important;
+        }
+
+        /* HUD Flotante de Controles de Zoom y Escala de Símbolos */
+        .canvas-hud {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 6px 10px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+            z-index: 120;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 96%;
+        }
+
+        .hud-group {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            background: #f1f5f9;
+            padding: 3px 5px;
+            border-radius: 7px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .hud-btn {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: var(--dark);
+            border-radius: 6px;
+            padding: 5px 9px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 30px;
+            transition: all 0.15s;
+        }
+        .hud-btn:hover {
+            background: #e2e8f0;
+        }
+        .hud-btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--primary);
+        }
+        .hud-val {
+            font-size: 0.78rem;
+            font-weight: bold;
+            color: var(--primary);
+            min-width: 44px;
+            text-align: center;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+
+        /* Banner Táctil de Estado / Guía Interactiva */
+        #touch-status-banner {
+            position: absolute;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(44, 62, 80, 0.94);
+            color: #ffffff;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.83rem;
+            font-weight: 600;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            z-index: 125;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            max-width: 94%;
+            text-align: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        #touch-status-banner button {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 4px 10px;
+            font-size: 0.76rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #touch-status-banner button.btn-secondary-banner {
+            background: #3498db;
+        }
+
+        /* Barra Inferior y Gavetas para Celulares y Tablets */
+        #mobile-bottom-bar {
+            display: none;
+        }
+        #mobile-drawer-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 490;
+        }
+        .mobile-close-drawer {
+            display: none;
+            width: 100%;
+            padding: 10px;
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        #mobile-prop-pill {
+            display: none;
+            position: absolute;
+            bottom: 70px;
+            right: 14px;
+            background: var(--accent);
+            color: #fff;
+            border: 2px solid #fff;
+            border-radius: 24px;
+            padding: 9px 15px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+            z-index: 130;
+            cursor: pointer;
+        }
+
+        @media (max-width: 960px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                bottom: 58px;
+                width: 86vw;
+                max-width: 330px;
+                z-index: 500;
+                transition: transform 0.25s ease;
+            }
+            .sidebar-left {
+                left: 0;
+                transform: translateX(-105%);
+            }
+            .sidebar-left.mobile-open {
+                transform: translateX(0);
+            }
+            .sidebar-right {
+                right: 0;
+                transform: translateX(105%);
+            }
+            .sidebar-right.mobile-open {
+                transform: translateX(0);
+            }
+            .mobile-close-drawer {
+                display: block;
+            }
+            .workspace {
+                width: 100vw;
+                height: calc(100vh - 58px);
+            }
+            #mobile-bottom-bar {
+                display: flex;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 58px;
+                background: var(--primary);
+                border-top: 2px solid #1a252f;
+                z-index: 510;
+                justify-content: space-around;
+                align-items: center;
+                padding: 0 4px;
+            }
+            .mob-nav-btn {
+                flex: 1;
+                height: 100%;
+                background: none;
+                border: none;
+                color: #ecf0f1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.68rem;
+                font-weight: 600;
+                gap: 2px;
+                cursor: pointer;
+            }
+            .mob-nav-btn span.mob-icon {
+                font-size: 1.2rem;
+                line-height: 1;
+            }
+            .mob-nav-btn.active {
+                background: rgba(52, 152, 219, 0.32);
+                color: #fff;
+                border-top: 3px solid #3498db;
+            }
+            .canvas-hud {
+                top: 8px;
+                padding: 4px 6px;
+                gap: 4px;
+            }
+            .hud-btn {
+                padding: 4px 7px;
+                font-size: 0.74rem;
+                min-height: 28px;
+            }
+            #touch-status-banner {
+                top: 56px;
+                font-size: 0.78rem;
+                padding: 6px 12px;
+            }
+            #legend-overlay {
+                bottom: 70px !important;
+                left: 10px !important;
+                max-width: 75vw;
+            }
         }
 
         /* Estilos de los Modales (Balance y Ayuda) */
@@ -418,23 +708,29 @@
 </head>
 <body>
 
+    <div id="mobile-drawer-backdrop" onclick="closeMobileDrawers()"></div>
+
     <!-- Panel Lateral Izquierdo (Herramientas y Propiedades) -->
-    <div class="sidebar sidebar-left">
+    <div class="sidebar sidebar-left" id="sidebar-left">
+        <button class="mobile-close-drawer" onclick="closeMobileDrawers()">✖ Cerrar Panel y Volver al Plano</button>
         <div class="header">
             <img src="CADELEC.png" style="width: 100%; max-width: 180px; margin-bottom: 10px;" alt="Cadelec fast">
             <button onclick="window.open('https://github.com/caramireg/cadelecfast_v1.0/releases/tag/v2.0.0', '_blank')" style="width:100%; padding:10px; background:#f1c40f; color:#2c3e50; font-weight:bold; border:none; border-radius:6px; cursor:pointer; margin-bottom:10px; font-size: 14px; animation: pulse 2s infinite;">🚀 Descargar Cadelec V2</button>
             <p>Herramientas y Componentes</p>
         </div>
 
-        <div class="panel" style="flex: none; max-height: 55%; overflow-y: auto;">
+        <div class="panel" style="flex: 1; overflow-y: auto;">
             <h2>Herramientas</h2>
-            <button class="tool-btn active" id="btn-select" onclick="setMode('select')">
+            <button class="tool-btn active" id="btn-select" onclick="setMode('select'); closeMobileDrawers();">
                 <span class="tool-icon">👆</span> Selección / Mover
             </button>
-            <button class="tool-btn" id="btn-wire" onclick="setMode('wire')">
+            <button class="tool-btn" id="btn-pan" onclick="setMode('pan'); closeMobileDrawers();">
+                <span class="tool-icon">✋</span> Mover Plano (Vista)
+            </button>
+            <button class="tool-btn" id="btn-wire" onclick="setMode('wire'); closeMobileDrawers();">
                 <span class="tool-icon">✏️</span> Trazar Cable
             </button>
-            <button class="tool-btn" id="btn-erase" onclick="setMode('erase')">
+            <button class="tool-btn" id="btn-erase" onclick="setMode('erase'); closeMobileDrawers();">
                 <span class="tool-icon">🗑️</span> Borrador
             </button>
             
@@ -445,20 +741,20 @@
             <p style="font-size: 0.75rem; color: #7f8c8d; margin-top: 5px; margin-bottom: 15px; text-align: center; line-height: 1.2;">Formatos admitidos: JPG, PNG, WEBP.<br><small>(Si tomas la foto con iPhone/HEIC, asegúrate de que se convierta a JPG)</small></p>
             <input type="file" id="file-input" style="display:none" accept="image/jpeg, image/png, image/webp" onchange="loadPlan(this)">
             
-            <button class="tool-btn" id="btn-calibrate" onclick="setMode('calibrate')">
+            <button class="tool-btn" id="btn-calibrate" onclick="setMode('calibrate'); closeMobileDrawers();">
                 <span class="tool-icon">📏</span> Calibrar Escala (Metros)
             </button>
-            <button class="tool-btn" id="btn-measure" onclick="setMode('measure')">
+            <button class="tool-btn" id="btn-measure" onclick="setMode('measure'); closeMobileDrawers();">
                 <span class="tool-icon">📐</span> Medir Distancia
             </button>
             <button class="tool-btn" id="btn-toggle-legend" onclick="toggleLegend()">
                 <span class="tool-icon">📋</span> Mostrar Leyenda
             </button>
             <button class="tool-btn" id="btn-toggle-labels" onclick="toggleNodeLabels()">
-                <span class="tool-icon">🏷️</span> Mostrar Etiquetas
+                <span class="tool-icon">🏷️</span> Mostrar Etiquetas (Cto)
             </button>
             
-            <h2 style="margin-top: 15px;">Componentes</h2>
+            <h2 style="margin-top: 15px;">Componentes (Toca para colocar)</h2>
             <button class="tool-btn" onclick="addComponent('board')">
                 <img src="simbolos/Tablero.png" style="width: 24px; height: 24px; margin-right: 10px; object-fit: contain;" alt="Tablero"> Tablero de Distribución
             </button>
@@ -477,7 +773,7 @@
         </div>
 
         <!-- Panel de Propiedades Editable -->
-        <div class="panel" id="properties-panel" style="display: none; background: #fdfdfd; border-left: 3px solid var(--accent); flex: none;">
+        <div class="panel" id="properties-panel" style="display: none; background: #fdfdfd; border-left: 3px solid var(--accent); flex: none; max-height: 48%; overflow-y: auto;">
             <h2>Propiedades</h2>
             <div class="property-group">
                 <label>Tipo de Elemento:</label>
@@ -485,12 +781,17 @@
             </div>
             
             <div id="prop-power-group" class="property-group">
-                <label>Potencia (Watts):</label>
-                <input type="number" id="prop-power" min="0" onchange="updateSelectedNode()">
+                <label>Potencia Editable (Watts):</label>
+                <input type="number" id="prop-power" min="0" step="10" oninput="updateSelectedNode()" onchange="updateSelectedNode()">
+                <label style="margin-top: 6px;">Voltaje de Operación:</label>
+                <select id="prop-voltage" onchange="updateSelectedNode()">
+                    <option value="120">120V Monofásico (Fase + Neutro)</option>
+                    <option value="240">240V Bifásico (2 Fases)</option>
+                </select>
             </div>
 
             <div id="prop-outlet-group" class="property-group" style="display:none;">
-                <label>Tipo de Carga (Tomacorriente):</label>
+                <label>Plantilla de Carga (Tomacorriente):</label>
                 <select id="prop-outlet-type" onchange="updateOutletType()" style="margin-bottom: 5px;">
                     <option value="180_120">Uso General (180W / 120V)</option>
                     <option value="300_120">Lavadora (300W / 120V)</option>
@@ -498,9 +799,10 @@
                     <option value="250_120">Nevera (250W / 120V)</option>
                     <option value="1500_120">Lava vajillas / Otros (1500W / 120V)</option>
                     <option value="8000_240">Estufa / Fogón (8000W / 240V)</option>
-                    <option value="3000_240">Tina (3000W / 240V)</option>
+                    <option value="3000_240">Tina / Ducha (3000W / 240V)</option>
                     <option value="2000_240">Secadora (2000W / 240V)</option>
                     <option value="4500_240">Horno (4500W / 240V)</option>
+                    <option value="7200_240">Cargador Vehículo EV (7200W / 240V)</option>
                     <option value="custom">Personalizado...</option>
                 </select>
                 <div style="margin-top: 8px;">
@@ -514,6 +816,17 @@
             <div id="prop-board-group" class="property-group" style="display:none;">
                 <label>Número de Vías/Circuitos:</label>
                 <input type="number" id="prop-circuits" min="1" max="48" onchange="updateSelectedNode()">
+            </div>
+
+            <div id="prop-node-scale-group" class="property-group" style="display:none;">
+                <label style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Tamaño de este símbolo:</span>
+                    <span id="prop-node-scale-val" style="color:var(--accent);">100%</span>
+                </label>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <input type="range" id="prop-node-scale" min="0.4" max="2.2" step="0.05" value="1" oninput="updateSelectedNodeScale(this.value)" style="flex:1;">
+                    <button type="button" onclick="updateSelectedNodeScale(1)" style="padding:3px 7px; font-size:0.72rem; border:1px solid #ccc; border-radius:4px; background:#f8f9fa; cursor:pointer;">100%</button>
+                </div>
             </div>
 
             <div id="prop-wire-group" class="property-group" style="display:none;">
@@ -545,6 +858,7 @@
                     <label>Longitud Real Estimada:</label>
                     <input type="text" id="prop-wire-length" disabled style="background:#eee; font-weight:bold; color:var(--primary);">
                 </div>
+                <button type="button" class="btn" style="width:100%; margin-top:8px; background:#3498db; font-size:0.8rem;" onclick="resetSelectedWireCorners()">📏 Enderezar Cable (Quitar curvas)</button>
             </div>
 
             <button class="btn btn-clear" style="width: 100%; margin-top: 10px;" onclick="deleteSelectedElement()">🗑️ Eliminar Seleccionado</button>
@@ -553,10 +867,40 @@
 
     <!-- Lienzo de Trabajo (Centro) -->
     <div class="workspace" id="workspace">
-        <div id="canvas-bg"></div>
-        <svg id="wire-layer"></svg>
+        <!-- Controles Flotantes HUD (Zoom, Vista y Escala de Símbolos) -->
+        <div class="canvas-hud" onpointerdown="event.stopPropagation()">
+            <div class="hud-group" title="Zoom del Plano">
+                <button class="hud-btn" onclick="changeZoom(-0.15)" title="Alejar plano">➖</button>
+                <span class="hud-val" id="zoom-val-label" onclick="fitWorldToScreen()" title="Toca para encuadrar plano en pantalla">100%</span>
+                <button class="hud-btn" onclick="changeZoom(0.15)" title="Acercar plano">➕</button>
+                <button class="hud-btn" onclick="fitWorldToScreen()" title="Encuadrar plano completo">🔍</button>
+            </div>
+            <div class="hud-group" title="Tamaño de los Símbolos en el Plano">
+                <span style="font-size:0.75rem; font-weight:bold; color:#475569; padding-left:3px;">🔣</span>
+                <button class="hud-btn" onclick="changeSymbolScale(-0.1)" title="Reducir tamaño de símbolos">➖</button>
+                <span class="hud-val" id="symbol-scale-label" onclick="resetSymbolScale()" title="Toca para restaurar símbolos a 100%">100%</span>
+                <button class="hud-btn" onclick="changeSymbolScale(0.1)" title="Aumentar tamaño de símbolos">➕</button>
+            </div>
+            <button class="hud-btn" id="hud-btn-captions" onclick="toggleNodeCaptions()" title="Mostrar/Ocultar textos inferiores (Modo Plano Limpio)">📝 Textos</button>
+        </div>
+
+        <!-- Banner Táctil de Ayuda Contextual -->
+        <div id="touch-status-banner" onpointerdown="event.stopPropagation()">
+            <span id="touch-status-text">Modo activo</span>
+            <button type="button" id="touch-undo-corner-btn" class="btn-secondary-banner" style="display:none;" onclick="undoLastWireCorner()">↩ Esquina</button>
+            <button type="button" onclick="setMode('select')">✖ Cancelar</button>
+        </div>
+
+        <!-- Escenario Invariante (#world-stage) -->
+        <div id="world-stage">
+            <div id="canvas-bg"></div>
+            <svg id="wire-layer"></svg>
+        </div>
+
         <div id="tooltip">Haz clic en el primer punto...</div>
         
+        <button id="mobile-prop-pill" onpointerdown="event.stopPropagation()" onclick="openMobileDrawer('left', true)">⚙️ Editar Propiedades</button>
+
         <!-- Cuadro de Convenciones (Leyenda) -->
         <div id="legend-overlay" style="position:absolute; bottom: 20px; left: 20px; background: rgba(255,255,255,0.95); border: 2px solid #bdc3c7; border-radius: 8px; padding: 10px; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; z-index: 100;">
             <h4 style="margin:0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: var(--primary);">Cuadro de Convenciones</h4>
@@ -567,7 +911,8 @@
     </div>
 
     <!-- Panel Lateral Derecho (Análisis y Reportes) -->
-    <div class="sidebar sidebar-right">
+    <div class="sidebar sidebar-right" id="sidebar-right">
+        <button class="mobile-close-drawer" onclick="closeMobileDrawers()">✖ Cerrar Panel y Volver al Plano</button>
         <div class="header" style="background-color: var(--secondary);">
             <h1>Análisis RETIE</h1>
             <p>Cálculos y Reportes</p>
@@ -595,6 +940,53 @@
             <button class="btn" style="background-color: #2980b9;" onclick="showBalanceModal()">⚖️ Balance</button>
             <button class="btn" style="background-color: #f1c40f; color:#333;" onclick="showMaterialsModal()">💰 Presupuesto</button>
             <button class="btn" style="background-color: #16a085; grid-column: span 2;" onclick="showHelpModal()">❓ Guía de Uso</button>
+        </div>
+    </div>
+
+    <!-- Barra Inferior Táctil para Celulares y Tablets -->
+    <nav id="mobile-bottom-bar">
+        <button class="mob-nav-btn" id="mob-btn-left" onclick="openMobileDrawer('left')">
+            <span class="mob-icon">🛠️</span>
+            <span>Catálogo</span>
+        </button>
+        <button class="mob-nav-btn active" id="mob-btn-select" onclick="setMode('select'); closeMobileDrawers();">
+            <span class="mob-icon">👆</span>
+            <span>Mover</span>
+        </button>
+        <button class="mob-nav-btn" id="mob-btn-pan" onclick="setMode('pan'); closeMobileDrawers();">
+            <span class="mob-icon">✋</span>
+            <span>Vista</span>
+        </button>
+        <button class="mob-nav-btn" id="mob-btn-wire" onclick="setMode('wire'); closeMobileDrawers();">
+            <span class="mob-icon">✏️</span>
+            <span>Cablear</span>
+        </button>
+        <button class="mob-nav-btn" id="mob-btn-right" onclick="openMobileDrawer('right')">
+            <span class="mob-icon">⚡</span>
+            <span>Circuitos</span>
+        </button>
+    </nav>
+
+    <!-- Modal Táctil para Calibración de Escala (Reemplaza window.prompt) -->
+    <div class="modal-overlay" id="calibrate-modal">
+        <div class="modal-content" style="max-width: 420px; text-align: center;">
+            <button class="modal-close" onclick="closeCalibrateModal(false)">✖</button>
+            <h2 style="color: var(--primary); margin-bottom: 10px;">📏 Calibrar Escala del Plano</h2>
+            <p style="font-size: 0.9rem; color: #555; margin-bottom: 14px;">
+                Ingresa cuántos <b>metros reales</b> mide la distancia entre los puntos <b>A</b> y <b>B</b> que acabas de marcar:
+            </p>
+            <input type="number" id="calib-distance-input" inputmode="decimal" step="0.01" min="0.05" placeholder="Ej: 3.5" style="width: 100%; padding: 12px; font-size: 1.2rem; text-align: center; border: 2px solid var(--accent); border-radius: 6px; font-weight: bold; margin-bottom: 10px;">
+            <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px;">
+                <button type="button" class="hud-btn" onclick="document.getElementById('calib-distance-input').value='1.0'">1.0 m</button>
+                <button type="button" class="hud-btn" onclick="document.getElementById('calib-distance-input').value='2.0'">2.0 m</button>
+                <button type="button" class="hud-btn" onclick="document.getElementById('calib-distance-input').value='3.0'">3.0 m</button>
+                <button type="button" class="hud-btn" onclick="document.getElementById('calib-distance-input').value='4.0'">4.0 m</button>
+                <button type="button" class="hud-btn" onclick="document.getElementById('calib-distance-input').value='5.0'">5.0 m</button>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn btn-clear" style="flex: 1; padding: 10px;" onclick="closeCalibrateModal(false)">Cancelar</button>
+                <button type="button" class="btn btn-save" style="flex: 1; padding: 10px;" onclick="closeCalibrateModal(true)">✅ Confirmar Escala</button>
+            </div>
         </div>
     </div>
 
@@ -766,18 +1158,37 @@ const SYMBOLS_B64 = {
         // --- ESTADO DE LA APLICACIÓN ---
         let nodes = [];
         let wires = [];
-        let mode = 'select'; // 'select', 'wire', 'erase', 'calibrate', 'place_component'
+        let mode = 'select'; // 'select', 'pan', 'wire', 'erase', 'calibrate', 'measure', 'place_component'
         let componentToPlace = null;
         let selectedNodeId = null;
         let selectedWireIndex = null;
         let wireStartNodeId = null;
         let tempWirePoints = [];
         let draggedNode = null;
+        let draggedVertex = null; // { wireIndex, pointIndex }
         let hoveredNode = null;
         let idCounter = 1;
         let bgImageBase64 = null;
+
+        // Estado del Escenario Invariante (#world-stage) y Cámara Táctil
+        let worldWidth = 1600;
+        let worldHeight = 1100;
+        let zoom = 1;
+        let panX = 0;
+        let panY = 0;
+        let symbolScale = 1.0;
+        let showNodeCaptions = true;
+
+        // Estado de Gestos Táctiles (Pan y Pinch-to-Zoom con 2 dedos)
+        let isPanning = false;
+        let panStartClient = { x: 0, y: 0 };
+        let panStartOffset = { x: 0, y: 0 };
+        let panMoved = false;
+        let isPinching = false;
+        let lastPinchDist = 0;
+        let lastPinchMid = { x: 0, y: 0 };
         
-        // Estado de Calibración
+        // Estado de Calibración y Medición
         let pxPerMeter = null;
         let calibPoints = [];
         let measurePoints = [];
@@ -791,6 +1202,8 @@ const SYMBOLS_B64 = {
         let projectPrices = {
             "Tablero de Distribución": 250000,
             "Tomacorriente (180W)": 15000,
+            "Tomacorriente Estándar": 15000,
+            "Tomacorriente GFCI (Zona Húmeda)": 48000,
             "Tomacorriente Especial (240V)": 45000,
             "Luminaria (60W)": 35000,
             "Interruptor Simple": 12000,
@@ -811,6 +1224,7 @@ const SYMBOLS_B64 = {
 
         // Referencias DOM
         const workspace = document.getElementById('workspace');
+        const worldStage = document.getElementById('world-stage');
         const wireLayer = document.getElementById('wire-layer');
         const canvasBg = document.getElementById('canvas-bg');
         const propPanel = document.getElementById('properties-panel');
@@ -819,8 +1233,206 @@ const SYMBOLS_B64 = {
         const propOutletType = document.getElementById('prop-outlet-type');
         const propBoardGroup = document.getElementById('prop-board-group');
         const propWireGroup = document.getElementById('prop-wire-group');
+        const propNodeScaleGroup = document.getElementById('prop-node-scale-group');
         const circuitsContainer = document.getElementById('circuits-container');
         const tooltip = document.getElementById('tooltip');
+        const touchStatusBanner = document.getElementById('touch-status-banner');
+        const touchStatusText = document.getElementById('touch-status-text');
+        const touchUndoCornerBtn = document.getElementById('touch-undo-corner-btn');
+        const mobilePropPill = document.getElementById('mobile-prop-pill');
+
+        // --- SISTEMA DE ESCENARIO INVARIANTE (#world-stage) Y CÁMARA ---
+
+        function setWorldDimensions(w, h) {
+            worldWidth = Math.max(400, Math.round(w || 1600));
+            worldHeight = Math.max(300, Math.round(h || 1100));
+            worldStage.style.width = `${worldWidth}px`;
+            worldStage.style.height = `${worldHeight}px`;
+            wireLayer.setAttribute('viewBox', `0 0 ${worldWidth} ${worldHeight}`);
+        }
+
+        function applyCameraTransform() {
+            worldStage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+            const lbl = document.getElementById('zoom-val-label');
+            if (lbl) lbl.innerText = `${Math.round(zoom * 100)}%`;
+        }
+
+        function fitWorldToScreen() {
+            const rect = workspace.getBoundingClientRect();
+            if (rect.width < 20 || rect.height < 20) return;
+            const padX = 20;
+            const padTop = 58;
+            const padBottom = 20;
+            const availW = Math.max(100, rect.width - padX * 2);
+            const availH = Math.max(100, rect.height - padTop - padBottom);
+            zoom = Math.min(availW / worldWidth, availH / worldHeight);
+            zoom = Math.max(0.2, Math.min(2.5, zoom));
+            panX = Math.round((rect.width - worldWidth * zoom) / 2);
+            panY = Math.round(padTop + (availH - worldHeight * zoom) / 2);
+            applyCameraTransform();
+        }
+
+        function changeZoom(delta, centerClientX, centerClientY) {
+            const rect = workspace.getBoundingClientRect();
+            const cx = centerClientX !== undefined ? (centerClientX - rect.left) : (rect.width / 2);
+            const cy = centerClientY !== undefined ? (centerClientY - rect.top) : (rect.height / 2);
+            const worldX = (cx - panX) / zoom;
+            const worldY = (cy - panY) / zoom;
+            zoom = Math.max(0.2, Math.min(4.0, Math.round((zoom + delta) * 100) / 100));
+            panX = Math.round(cx - worldX * zoom);
+            panY = Math.round(cy - worldY * zoom);
+            applyCameraTransform();
+        }
+
+        // Mantener el centro del plano estable cuando cambia el tamaño de ventana o se gira el celular/tablet
+        let lastWorkspaceSize = { w: 0, h: 0 };
+        window.addEventListener('resize', () => {
+            const rect = workspace.getBoundingClientRect();
+            if (rect.width < 20 || rect.height < 20) return;
+            if (lastWorkspaceSize.w > 0 && lastWorkspaceSize.h > 0) {
+                const dx = (rect.width - lastWorkspaceSize.w) / 2;
+                const dy = (rect.height - lastWorkspaceSize.h) / 2;
+                panX = Math.round(panX + dx);
+                panY = Math.round(panY + dy);
+                applyCameraTransform();
+            } else {
+                fitWorldToScreen();
+            }
+            lastWorkspaceSize = { w: rect.width, h: rect.height };
+        });
+
+        // --- ESCALA DE SÍMBOLOS Y MODO PLANO LIMPIO ---
+
+        function changeSymbolScale(delta) {
+            symbolScale = Math.max(0.35, Math.min(2.0, Math.round((symbolScale + delta) * 100) / 100));
+            updateSymbolScaleUI();
+            renderWorkspace();
+        }
+
+        function resetSymbolScale() {
+            symbolScale = 1.0;
+            updateSymbolScaleUI();
+            renderWorkspace();
+        }
+
+        function updateSymbolScaleUI() {
+            const lbl = document.getElementById('symbol-scale-label');
+            if (lbl) lbl.innerText = `${Math.round(symbolScale * 100)}%`;
+        }
+
+        function updateSelectedNodeScale(val) {
+            if (!selectedNodeId) return;
+            const node = nodes.find(n => n.id === selectedNodeId);
+            if (!node) return;
+            node.customScale = Math.max(0.4, Math.min(2.2, parseFloat(val) || 1));
+            const sl = document.getElementById('prop-node-scale');
+            const lbl = document.getElementById('prop-node-scale-val');
+            if (sl) sl.value = node.customScale;
+            if (lbl) lbl.innerText = `${Math.round(node.customScale * 100)}%`;
+            renderWorkspace();
+        }
+
+        function toggleNodeCaptions() {
+            showNodeCaptions = !showNodeCaptions;
+            worldStage.classList.toggle('hide-node-captions', !showNodeCaptions);
+            const btn = document.getElementById('hud-btn-captions');
+            if (btn) btn.classList.toggle('active', !showNodeCaptions);
+        }
+
+        // --- NAVEGACIÓN MÓVIL / TABLET (GAVETAS COLAPSABLES) ---
+
+        function openMobileDrawer(side, scrollToProps = false) {
+            const leftEl = document.getElementById('sidebar-left');
+            const rightEl = document.getElementById('sidebar-right');
+            const backdrop = document.getElementById('mobile-drawer-backdrop');
+            if (side === 'left') {
+                const isOpen = leftEl.classList.contains('mobile-open') && !scrollToProps;
+                leftEl.classList.toggle('mobile-open', !isOpen);
+                rightEl.classList.remove('mobile-open');
+                backdrop.style.display = !isOpen ? 'block' : 'none';
+                if (!isOpen && scrollToProps && propPanel.style.display !== 'none') {
+                    setTimeout(() => propPanel.scrollIntoView({ behavior: 'smooth', block: 'end' }), 120);
+                }
+            } else if (side === 'right') {
+                const isOpen = rightEl.classList.contains('mobile-open');
+                rightEl.classList.toggle('mobile-open', !isOpen);
+                leftEl.classList.remove('mobile-open');
+                backdrop.style.display = !isOpen ? 'block' : 'none';
+            }
+        }
+
+        function closeMobileDrawers() {
+            const leftEl = document.getElementById('sidebar-left');
+            const rightEl = document.getElementById('sidebar-right');
+            const backdrop = document.getElementById('mobile-drawer-backdrop');
+            if (leftEl) leftEl.classList.remove('mobile-open');
+            if (rightEl) rightEl.classList.remove('mobile-open');
+            if (backdrop) backdrop.style.display = 'none';
+        }
+
+        function updateMobilePropPill() {
+            if (!mobilePropPill) return;
+            if (window.innerWidth <= 960 && (selectedNodeId !== null || selectedWireIndex !== null)) {
+                mobilePropPill.style.display = 'block';
+            } else {
+                mobilePropPill.style.display = 'none';
+            }
+        }
+
+        function updateTouchBanner() {
+            if (!touchStatusBanner || !touchStatusText) return;
+            touchUndoCornerBtn.style.display = 'none';
+
+            if (mode === 'place_component' && componentToPlace) {
+                const names = { board: 'Tablero', outlet: 'Tomacorriente', light: 'Luminaria', switch: 'Interruptor', switch3w: 'Conmutador 3 Vías' };
+                touchStatusText.innerText = `📍 Toca en el plano donde deseas colocar: ${names[componentToPlace] || 'Componente'}`;
+                touchStatusBanner.style.display = 'flex';
+            } else if (mode === 'wire') {
+                if (!wireStartNodeId) {
+                    touchStatusText.innerText = '✏️ Modo Cable: Toca el primer símbolo (origen) para empezar a conectar';
+                } else {
+                    const nStart = nodes.find(n => n.id === wireStartNodeId);
+                    touchStatusText.innerText = `✏️ Origen: ${nStart ? nStart.label : 'Símbolo'}. Toca el plano para doblar esquina o toca otro símbolo para unir`;
+                    if (tempWirePoints.length > 0) {
+                        touchUndoCornerBtn.style.display = 'inline-block';
+                    }
+                }
+                touchStatusBanner.style.display = 'flex';
+            } else if (mode === 'calibrate') {
+                if (calibPoints.length === 0) {
+                    touchStatusText.innerText = '📏 Calibrar (Paso 1/2): Toca el Punto A de una pared conocida';
+                } else {
+                    touchStatusText.innerText = '📏 Calibrar (Paso 2/2): Ahora toca el Punto B (extremo de la pared)';
+                }
+                touchStatusBanner.style.display = 'flex';
+            } else if (mode === 'measure') {
+                if (measurePoints.length === 0) {
+                    touchStatusText.innerText = '📐 Medir (Paso 1/2): Toca el punto inicial en el plano';
+                } else if (measurePoints.length === 1) {
+                    touchStatusText.innerText = '📐 Medir (Paso 2/2): Toca el punto final para calcular los metros';
+                } else if (measurePoints.length === 2 && pxPerMeter) {
+                    const d = Math.hypot(measurePoints[1].x - measurePoints[0].x, measurePoints[1].y - measurePoints[0].y) / pxPerMeter;
+                    touchStatusText.innerText = `📐 Distancia A → B: ${d.toFixed(2)} metros (Toca otro punto para nueva medición)`;
+                }
+                touchStatusBanner.style.display = 'flex';
+            } else if (mode === 'erase') {
+                touchStatusText.innerText = '🗑️ Borrador activo: Toca cualquier símbolo o cable para eliminarlo';
+                touchStatusBanner.style.display = 'flex';
+            } else if (mode === 'pan') {
+                touchStatusText.innerText = '✋ Modo Vista: Arrastra con 1 o 2 dedos para mover el plano';
+                touchStatusBanner.style.display = 'flex';
+            } else {
+                touchStatusBanner.style.display = 'none';
+            }
+        }
+
+        function undoLastWireCorner() {
+            if (mode === 'wire' && tempWirePoints.length > 0) {
+                tempWirePoints.pop();
+                updateTouchBanner();
+                renderWorkspace();
+            }
+        }
 
         // --- FUNCIONES PRINCIPALES ---
 
@@ -830,7 +1442,19 @@ const SYMBOLS_B64 = {
             const reader = new FileReader();
             reader.onload = (e) => {
                 bgImageBase64 = e.target.result;
-                canvasBg.style.backgroundImage = `url(${bgImageBase64})`;
+                const img = new Image();
+                img.onload = () => {
+                    const maxSide = 1600;
+                    const natW = img.naturalWidth || 1600;
+                    const natH = img.naturalHeight || 1100;
+                    const scale = maxSide / Math.max(natW, natH);
+                    setWorldDimensions(Math.round(natW * scale), Math.round(natH * scale));
+                    canvasBg.style.backgroundImage = `url(${bgImageBase64})`;
+                    fitWorldToScreen();
+                    closeMobileDrawers();
+                    renderWorkspace();
+                };
+                img.src = bgImageBase64;
             };
             reader.readAsDataURL(file);
         }
@@ -859,7 +1483,7 @@ const SYMBOLS_B64 = {
             } else {
                 btn.classList.remove('active');
             }
-            renderWorkspace(); // Re-render to show/hide labels
+            renderWorkspace();
         }
 
         function updateLegend() {
@@ -894,12 +1518,10 @@ const SYMBOLS_B64 = {
                 if (mode === 'wire' && wireStartNodeId) {
                     wireStartNodeId = null;
                     tempWirePoints = [];
+                    updateTouchBanner();
                     renderWorkspace();
-                } else if (mode === 'calibrate') {
+                } else if (mode !== 'select') {
                     calibPoints = [];
-                    tooltip.style.display = 'none';
-                    setMode('select');
-                } else if (mode === 'measure') {
                     measurePoints = [];
                     tooltip.style.display = 'none';
                     setMode('select');
@@ -919,18 +1541,21 @@ const SYMBOLS_B64 = {
             if(document.getElementById(`btn-${newMode}`)) {
                 document.getElementById(`btn-${newMode}`).classList.add('active');
             }
+
+            // Actualizar barra inferior móvil
+            document.querySelectorAll('#mobile-bottom-bar .mob-nav-btn').forEach(btn => btn.classList.remove('active'));
+            if (document.getElementById(`mob-btn-${newMode}`)) {
+                document.getElementById(`mob-btn-${newMode}`).classList.add('active');
+            }
             
             if (mode === 'wire') workspace.style.cursor = 'crosshair';
+            else if (mode === 'pan') workspace.style.cursor = 'grab';
             else if (mode === 'erase') workspace.style.cursor = 'not-allowed';
             else if (mode === 'calibrate') {
                 workspace.style.cursor = 'crosshair';
-                tooltip.style.display = 'block';
-                tooltip.innerText = "Haz clic en el primer punto de referencia...";
             }
             else if (mode === 'place_component') {
                 workspace.style.cursor = 'crosshair';
-                tooltip.style.display = 'block';
-                tooltip.innerText = "Haz clic en el lienzo para colocar el componente...";
             }
             else if (mode === 'measure') {
                 if (!pxPerMeter) {
@@ -939,16 +1564,16 @@ const SYMBOLS_B64 = {
                     return;
                 }
                 workspace.style.cursor = 'crosshair';
-                tooltip.style.display = 'block';
-                tooltip.innerText = "Haz clic en el punto de inicio para medir...";
             }
             else workspace.style.cursor = 'default';
             
+            updateTouchBanner();
             renderWorkspace();
         }
 
         function addComponent(type) {
             componentToPlace = type;
+            closeMobileDrawers();
             setMode('place_component');
         }
 
@@ -959,34 +1584,36 @@ const SYMBOLS_B64 = {
             let circuits = 0;
             let rounded = true;
             let voltage = 120;
-            let loadType = 'gen';
+            let loadType = '180_120';
 
             switch(type) {
                 case 'board': power = 0; img = 'simbolos/Tablero.png'; label = 'Tablero'; circuits = 4; rounded = false; break;
-                case 'outlet': power = 180; img = 'simbolos/tomacorriente.png'; label = 'Toma'; voltage = 120; loadType = 'gen'; break;
+                case 'outlet': power = 180; img = 'simbolos/tomacorriente.png'; label = 'Toma'; voltage = 120; loadType = '180_120'; break;
                 case 'light': power = 60; img = 'simbolos/luminaria.png'; label = 'Luz'; voltage = 120; break;
                 case 'switch': power = 0; img = 'simbolos/Interruptor sencillo.png'; label = 'Int.'; voltage = 120; break;
                 case 'switch3w': power = 0; img = 'simbolos/Interruptor conmutado.png'; label = 'Conmut.'; voltage = 120; break;
             }
 
+            const clampedX = Math.max(24, Math.min(worldWidth - 24, Math.round(x)));
+            const clampedY = Math.max(24, Math.min(worldHeight - 24, Math.round(y)));
+
             const node = {
                 id: idCounter++,
                 type: type,
-                x: x,
-                y: y,
+                x: clampedX,
+                y: clampedY,
                 power: power,
                 img: img,
                 label: label,
                 circuits: circuits,
                 rounded: rounded,
                 voltage: voltage,
-                loadType: loadType
+                loadType: loadType,
+                customScale: 1
             };
 
             nodes.push(node);
-            
             setMode('select');
-            
             selectNode(node.id); 
             analyzeSystem();
         }
@@ -1003,13 +1630,15 @@ const SYMBOLS_B64 = {
         }
 
         function _renderWorkspaceSync() {
-            const existingNodes = document.querySelectorAll('.node');
+            const existingNodes = worldStage.querySelectorAll('.node');
             existingNodes.forEach(el => {
-                const id = el.getAttribute('data-id');
+                const id = parseInt(el.getAttribute('data-id'));
                 if (!nodes.find(n => n.id === id)) el.remove();
             });
 
+            const wireScale = Math.max(0.55, Math.min(1.6, symbolScale));
             wireLayer.innerHTML = '';
+
             wires.forEach((wire, index) => {
                 const n1 = nodes.find(n => n.id === wire.from);
                 const n2 = nodes.find(n => n.id === wire.to);
@@ -1021,7 +1650,7 @@ const SYMBOLS_B64 = {
                     if (circuit) {
                         color = circuit.color;
                         if (circuit.vDropPercent > 3) {
-                            color = 'var(--danger)'; // Red color for voltage drop warning
+                            color = 'var(--danger)';
                             isWarning = true;
                         }
                     }
@@ -1045,12 +1674,18 @@ const SYMBOLS_B64 = {
                     pointsStr += ` ${n2.x},${n2.y}`;
                     allPoints.push({x: n2.x, y: n2.y});
 
+                    // Polilínea invisible ancha (24px) para facilitar selección táctil con el dedo
+                    const hitPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                    hitPolyline.setAttribute('points', pointsStr);
+                    hitPolyline.classList.add('wire-hit-area');
+                    wireGroup.appendChild(hitPolyline);
+
                     const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
                     polyline.setAttribute('points', pointsStr);
                     polyline.classList.add('wire');
                     polyline.style.fill = 'none';
                     polyline.style.stroke = color;
-                    polyline.style.strokeWidth = (circuit ? '4' : '3');
+                    polyline.style.strokeWidth = ((circuit ? 4 : 3) * wireScale).toFixed(2);
                     
                     if (wire.routing === 'piso') {
                         polyline.style.strokeDasharray = '8, 8';
@@ -1059,7 +1694,7 @@ const SYMBOLS_B64 = {
                     }
 
                     if (index === selectedWireIndex) {
-                        polyline.style.strokeWidth = '6';
+                        polyline.style.strokeWidth = (6 * wireScale).toFixed(2);
                         polyline.style.stroke = 'var(--accent)';
                     }
                     wireGroup.appendChild(polyline);
@@ -1097,8 +1732,8 @@ const SYMBOLS_B64 = {
                         let py = ux;
                         let mx = (longestSegment.p1.x + longestSegment.p2.x) / 2;
                         let my = (longestSegment.p1.y + longestSegment.p2.y) / 2;
-                        let spacing = 8; 
-                        let markLen = 16; 
+                        let spacing = 8 * wireScale; 
+                        let markLen = 16 * wireScale; 
                         
                         for (let i = 0; i < totalMarks; i++) {
                             let offset = (i - (totalMarks - 1) / 2) * spacing;
@@ -1110,7 +1745,6 @@ const SYMBOLS_B64 = {
                             let p2x = cx - px * markLen/2;
                             let p2y = cy - py * markLen/2;
 
-                            // 1. Línea base transversal (Palito)
                             const mark = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                             mark.setAttribute('x1', p1x);
                             mark.setAttribute('y1', p1y);
@@ -1118,29 +1752,26 @@ const SYMBOLS_B64 = {
                             mark.setAttribute('y2', p2y);
                             mark.classList.add('wire-mark');
                             mark.style.stroke = markData[i].color;
-                            mark.style.strokeWidth = '3';
+                            mark.style.strokeWidth = (3 * wireScale).toFixed(2);
                             mark.style.pointerEvents = 'none';
                             wireGroup.appendChild(mark);
 
-                            // 2. Símbolo de Tierra (Forma de T)
                             if (markData[i].type === 'ground') {
                                 const cross = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                                cross.setAttribute('x1', p1x + ux * 5);
-                                cross.setAttribute('y1', p1y + uy * 5);
-                                cross.setAttribute('x2', p1x - ux * 5);
-                                cross.setAttribute('y2', p1y - uy * 5);
+                                cross.setAttribute('x1', p1x + ux * 5 * wireScale);
+                                cross.setAttribute('y1', p1y + uy * 5 * wireScale);
+                                cross.setAttribute('x2', p1x - ux * 5 * wireScale);
+                                cross.setAttribute('y2', p1y - uy * 5 * wireScale);
                                 cross.classList.add('wire-mark');
                                 cross.style.stroke = markData[i].color;
-                                cross.style.strokeWidth = '3';
+                                cross.style.strokeWidth = (3 * wireScale).toFixed(2);
                                 cross.style.pointerEvents = 'none';
                                 wireGroup.appendChild(cross);
-                            }
-                            // 3. Símbolo de Neutro (Forma de Bombón / P)
-                            else if (markData[i].type === 'neutral') {
+                            } else if (markData[i].type === 'neutral') {
                                 const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                                 dot.setAttribute('cx', p1x);
                                 dot.setAttribute('cy', p1y);
-                                dot.setAttribute('r', '3.5');
+                                dot.setAttribute('r', (3.5 * wireScale).toFixed(2));
                                 dot.style.fill = markData[i].color;
                                 dot.style.pointerEvents = 'none';
                                 wireGroup.appendChild(dot);
@@ -1148,47 +1779,158 @@ const SYMBOLS_B64 = {
                         }
                     }
                     
-                    wireGroup.onclick = (e) => {
-                        e.stopPropagation();
+                    wireGroup.onpointerdown = (e) => {
+                        if (isPinching) return;
                         if (mode === 'erase') {
+                            e.stopPropagation();
                             wires.splice(index, 1);
                             selectedWireIndex = null;
+                            propPanel.style.display = 'none';
+                            updateMobilePropPill();
                             analyzeSystem();
                         } else if (mode === 'select') {
+                            e.stopPropagation();
                             selectWire(index);
                         }
                     };
                     wireLayer.appendChild(wireGroup);
+
+                    // Si el cable está seleccionado en modo 'select', mostrar vértices y puntos '+' para doblar con el dedo
+                    if (index === selectedWireIndex && mode === 'select') {
+                        const handleRadius = Math.max(7, Math.min(13, 9 / Math.sqrt(zoom)));
+
+                        // 1. Vértices existentes (esquinas)
+                        if (wire.points && wire.points.length > 0) {
+                            wire.points.forEach((pt, ptIdx) => {
+                                const vCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                                vCircle.setAttribute('cx', pt.x);
+                                vCircle.setAttribute('cy', pt.y);
+                                vCircle.setAttribute('r', handleRadius);
+                                vCircle.classList.add('wire-vertex');
+                                vCircle.onpointerdown = (ev) => {
+                                    if (isPinching) return;
+                                    ev.stopPropagation();
+                                    draggedVertex = { wireIndex: index, pointIndex: ptIdx };
+                                    workspace.setPointerCapture(ev.pointerId);
+                                };
+                                vCircle.ondblclick = (ev) => {
+                                    ev.stopPropagation();
+                                    wire.points.splice(ptIdx, 1);
+                                    analyzeSystem();
+                                };
+                                wireLayer.appendChild(vCircle);
+                            });
+                        }
+
+                        // 2. Tiradores '+' en el punto medio de cada tramo recto para crear curvas fácilmente con el dedo
+                        for (let segIdx = 0; segIdx < allPoints.length - 1; segIdx++) {
+                            const pA = allPoints[segIdx];
+                            const pB = allPoints[segIdx + 1];
+                            const segLen = Math.hypot(pB.x - pA.x, pB.y - pA.y);
+                            if (segLen < 28) continue;
+
+                            const midX = (pA.x + pB.x) / 2;
+                            const midY = (pA.y + pB.y) / 2;
+
+                            const midGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                            midGroup.classList.add('wire-midpoint-handle');
+
+                            const midCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                            midCircle.setAttribute('cx', midX);
+                            midCircle.setAttribute('cy', midY);
+                            midCircle.setAttribute('r', handleRadius);
+                            midCircle.classList.add('wire-midpoint-circle');
+                            midGroup.appendChild(midCircle);
+
+                            const plusText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            plusText.setAttribute('x', midX);
+                            plusText.setAttribute('y', midY + 1);
+                            plusText.setAttribute('text-anchor', 'middle');
+                            plusText.setAttribute('dominant-baseline', 'central');
+                            plusText.setAttribute('fill', '#ffffff');
+                            plusText.setAttribute('font-size', `${Math.round(handleRadius * 1.35)}px`);
+                            plusText.setAttribute('font-weight', 'bold');
+                            plusText.style.pointerEvents = 'none';
+                            plusText.textContent = '+';
+                            midGroup.appendChild(plusText);
+
+                            midGroup.onpointerdown = (ev) => {
+                                if (isPinching) return;
+                                ev.stopPropagation();
+                                if (!wire.points) wire.points = [];
+                                wire.points.splice(segIdx, 0, { x: Math.round(midX), y: Math.round(midY) });
+                                draggedVertex = { wireIndex: index, pointIndex: segIdx };
+                                workspace.setPointerCapture(ev.pointerId);
+                                renderWorkspace();
+                            };
+
+                            wireLayer.appendChild(midGroup);
+                        }
+                    }
                 }
             });
 
-            // Dibujar línea temporal de calibración si corresponde
-            if (mode === 'calibrate' && calibPoints.length === 1) {
+            // Dibujar marcadores y línea de calibración (táctil y escritorio)
+            if (mode === 'calibrate' && calibPoints.length >= 1) {
+                const endPt = calibPoints.length >= 2 ? calibPoints[1] : mousePos;
                 const tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 tempLine.setAttribute('x1', calibPoints[0].x);
                 tempLine.setAttribute('y1', calibPoints[0].y);
-                tempLine.setAttribute('x2', mousePos.x);
-                tempLine.setAttribute('y2', mousePos.y);
+                tempLine.setAttribute('x2', endPt.x);
+                tempLine.setAttribute('y2', endPt.y);
                 tempLine.style.stroke = 'var(--danger)';
                 tempLine.style.strokeWidth = '3';
-                tempLine.style.strokeDasharray = '5,5';
+                tempLine.style.strokeDasharray = '6,4';
                 wireLayer.appendChild(tempLine);
+
+                calibPoints.forEach((pt, idx) => {
+                    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    marker.setAttribute('cx', pt.x);
+                    marker.setAttribute('cy', pt.y);
+                    marker.setAttribute('r', '9');
+                    marker.style.fill = 'var(--danger)';
+                    marker.style.stroke = '#fff';
+                    marker.style.strokeWidth = '2.5';
+                    wireLayer.appendChild(marker);
+
+                    const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    txt.setAttribute('x', pt.x);
+                    txt.setAttribute('y', pt.y - 14);
+                    txt.setAttribute('text-anchor', 'middle');
+                    txt.setAttribute('fill', '#c0392b');
+                    txt.setAttribute('font-size', '13px');
+                    txt.setAttribute('font-weight', 'bold');
+                    txt.textContent = idx === 0 ? 'A' : 'B';
+                    wireLayer.appendChild(txt);
+                });
             }
 
-            // Dibujar línea temporal de medición si corresponde
-            if (mode === 'measure' && measurePoints.length === 1) {
+            // Dibujar marcadores y línea de medición
+            if (mode === 'measure' && measurePoints.length >= 1) {
+                const endPt = measurePoints.length >= 2 ? measurePoints[1] : mousePos;
                 const measureLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 measureLine.setAttribute('x1', measurePoints[0].x);
                 measureLine.setAttribute('y1', measurePoints[0].y);
-                measureLine.setAttribute('x2', mousePos.x);
-                measureLine.setAttribute('y2', mousePos.y);
-                measureLine.style.stroke = '#3498db';
-                measureLine.style.strokeWidth = '2';
-                measureLine.style.strokeDasharray = '4,4';
+                measureLine.setAttribute('x2', endPt.x);
+                measureLine.setAttribute('y2', endPt.y);
+                measureLine.style.stroke = '#2980b9';
+                measureLine.style.strokeWidth = '3';
+                measureLine.style.strokeDasharray = '5,5';
                 wireLayer.appendChild(measureLine);
+
+                measurePoints.forEach((pt, idx) => {
+                    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    marker.setAttribute('cx', pt.x);
+                    marker.setAttribute('cy', pt.y);
+                    marker.setAttribute('r', '8');
+                    marker.style.fill = '#2980b9';
+                    marker.style.stroke = '#fff';
+                    marker.style.strokeWidth = '2';
+                    wireLayer.appendChild(marker);
+                });
             }
 
-            // Dibujar línea temporal de cableado
+            // Dibujar línea temporal de cableado y esquinas intermedias
             if (mode === 'wire' && wireStartNodeId) {
                 const nStart = nodes.find(n => n.id === wireStartNodeId);
                 if (nStart) {
@@ -1201,19 +1943,30 @@ const SYMBOLS_B64 = {
                     tempPolyline.style.fill = 'none';
                     tempPolyline.style.stroke = 'var(--danger)';
                     tempPolyline.style.strokeWidth = '3';
-                    tempPolyline.style.strokeDasharray = '5,5';
+                    tempPolyline.style.strokeDasharray = '6,5';
                     wireLayer.appendChild(tempPolyline);
+
+                    tempWirePoints.forEach(p => {
+                        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        c.setAttribute('cx', p.x);
+                        c.setAttribute('cy', p.y);
+                        c.setAttribute('r', '6');
+                        c.style.fill = '#e74c3c';
+                        c.style.stroke = '#ffffff';
+                        c.style.strokeWidth = '2';
+                        wireLayer.appendChild(c);
+                    });
                 }
             }
 
             nodes.forEach(node => {
-                let el = document.querySelector(`.node[data-id="${node.id}"]`);
+                let el = worldStage.querySelector(`.node[data-id="${node.id}"]`);
                 if (!el) {
                     el = document.createElement('div');
                     el.setAttribute('data-id', node.id);
+                    // Un solo manejador pointerdown para evitar el doble disparo (pointerdown + click) en pantallas táctiles
                     el.onpointerdown = (e) => handleNodePointerDown(e, node.id);
-                    el.onclick = (e) => { e.stopPropagation(); handleNodeClick(e, node.id); };
-                    workspace.appendChild(el);
+                    worldStage.appendChild(el);
                 }
 
                 el.className = 'node';
@@ -1223,6 +1976,8 @@ const SYMBOLS_B64 = {
                 
                 el.style.left = `${node.x}px`;
                 el.style.top = `${node.y}px`;
+                const effScale = symbolScale * (node.customScale || 1);
+                el.style.setProperty('--node-scale', effScale);
                 
                 if (node.type !== 'board') {
                     let circuit = globalCircuits.find(c => c.nodes.includes(node));
@@ -1252,11 +2007,11 @@ const SYMBOLS_B64 = {
                     if (node.type !== 'board') {
                         let circ = globalCircuits.find(c => c.nodes && c.nodes.some(n => n.id === node.id));
                         if (circ) {
-                            circInfo = `<div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:bold; color:var(--primary); background:rgba(255,255,255,0.8); padding:0 3px; border-radius:3px; border: 1px solid var(--primary);">C-${circ.id}</div>`;
+                            circInfo = `<div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:bold; color:var(--primary); background:rgba(255,255,255,0.85); padding:0 3px; border-radius:3px; border: 1px solid var(--primary);">C-${circ.id}</div>`;
                         }
                     }
                     if (node.isGFCI) {
-                        circInfo += `<div style="position:absolute; bottom:-12px; left:50%; transform:translateX(-50%); font-size:9px; font-weight:bold; color:red; background:rgba(255,255,255,0.8); padding:0 3px; border-radius:3px; border: 1px solid red;">GFCI</div>`;
+                        circInfo += `<div style="position:absolute; bottom:-12px; left:50%; transform:translateX(-50%); font-size:9px; font-weight:bold; color:red; background:rgba(255,255,255,0.85); padding:0 3px; border-radius:3px; border: 1px solid red;">GFCI</div>`;
                     }
                 }
 
@@ -1269,16 +2024,110 @@ const SYMBOLS_B64 = {
             updateLegend();
         }
 
-        // --- INTERACCIONES ---
+        // --- INTERACCIONES TÁCTILES Y DE PUNTERO ---
 
         const getEventPos = (e) => {
-            const rect = workspace.getBoundingClientRect();
-            return {x: e.clientX - rect.left, y: e.clientY - rect.top};
+            const stageRect = worldStage.getBoundingClientRect();
+            const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+            const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+            return {
+                x: (clientX - stageRect.left) / zoom,
+                y: (clientY - stageRect.top) / zoom
+            };
         };
 
+        // Gestos Multi-Touch (2 dedos: Pinch-to-Zoom + Pan simultáneo)
+        workspace.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                isPinching = true;
+                draggedNode = null;
+                draggedVertex = null;
+                isPanning = false;
+                const t0 = e.touches[0];
+                const t1 = e.touches[1];
+                lastPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+                const wsRect = workspace.getBoundingClientRect();
+                lastPinchMid = {
+                    x: ((t0.clientX + t1.clientX) / 2) - wsRect.left,
+                    y: ((t0.clientY + t1.clientY) / 2) - wsRect.top
+                };
+            }
+        }, { passive: false });
+
+        workspace.addEventListener('touchmove', (e) => {
+            if (isPinching && e.touches.length === 2) {
+                e.preventDefault();
+                const t0 = e.touches[0];
+                const t1 = e.touches[1];
+                const newDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+                const wsRect = workspace.getBoundingClientRect();
+                const newMid = {
+                    x: ((t0.clientX + t1.clientX) / 2) - wsRect.left,
+                    y: ((t0.clientY + t1.clientY) / 2) - wsRect.top
+                };
+
+                if (lastPinchDist > 10) {
+                    const worldX = (lastPinchMid.x - panX) / zoom;
+                    const worldY = (lastPinchMid.y - panY) / zoom;
+                    const scaleRatio = newDist / lastPinchDist;
+                    zoom = Math.max(0.2, Math.min(4.0, zoom * scaleRatio));
+                    panX = Math.round(newMid.x - worldX * zoom);
+                    panY = Math.round(newMid.y - worldY * zoom);
+                    applyCameraTransform();
+                }
+                lastPinchDist = newDist;
+                lastPinchMid = newMid;
+            }
+        }, { passive: false });
+
+        workspace.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2 && isPinching) {
+                setTimeout(() => {
+                    if (!e.touches || e.touches.length === 0) {
+                        isPinching = false;
+                    }
+                }, 80);
+            }
+        });
+
+        // Zoom con rueda de ratón en PC
+        workspace.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.12 : -0.12;
+            changeZoom(delta, e.clientX, e.clientY);
+        }, { passive: false });
+
         const handleWorkspaceMove = (e) => {
+            if (isPinching) return;
+
+            if (isPanning) {
+                const dx = e.clientX - panStartClient.x;
+                const dy = e.clientY - panStartClient.y;
+                if (Math.hypot(dx, dy) > 5) panMoved = true;
+                panX = Math.round(panStartOffset.x + dx);
+                panY = Math.round(panStartOffset.y + dy);
+                applyCameraTransform();
+                return;
+            }
+
             const pos = getEventPos(e);
             mousePos = {x: pos.x, y: pos.y};
+
+            // Arrastrando un vértice (curva) de un cable seleccionado
+            if (draggedVertex !== null && mode === 'select') {
+                const w = wires[draggedVertex.wireIndex];
+                if (w && w.points && w.points[draggedVertex.pointIndex]) {
+                    w.points[draggedVertex.pointIndex].x = Math.max(10, Math.min(worldWidth - 10, Math.round(pos.x)));
+                    w.points[draggedVertex.pointIndex].y = Math.max(10, Math.min(worldHeight - 10, Math.round(pos.y)));
+                    if (selectedWireIndex === draggedVertex.wireIndex && pxPerMeter) {
+                        selectWire(selectedWireIndex);
+                    } else {
+                        renderWorkspace();
+                    }
+                }
+                return;
+            }
             
             // Hover logic
             let newHoveredNode = null;
@@ -1295,37 +2144,22 @@ const SYMBOLS_B64 = {
                 }
             }
             
-            if (mode === 'calibrate') {
-                tooltip.style.left = (e.clientX + 15) + 'px';
-                tooltip.style.top = (e.clientY + 15) + 'px';
-                if (calibPoints.length === 1) renderWorkspace();
+            if (mode === 'calibrate' && calibPoints.length === 1) {
+                renderWorkspace();
             }
 
-            if (mode === 'measure') {
-                tooltip.style.left = (e.clientX + 15) + 'px';
-                tooltip.style.top = (e.clientY + 15) + 'px';
-                if (measurePoints.length === 1 && pxPerMeter) {
-                    let dx = pos.x - measurePoints[0].x;
-                    let dy = pos.y - measurePoints[0].y;
-                    let pxDist = Math.sqrt(dx*dx + dy*dy);
-                    let mDist = pxDist / pxPerMeter;
-                    tooltip.innerText = `📏 ${mDist.toFixed(2)} m`;
-                    renderWorkspace();
-                }
+            if (mode === 'measure' && measurePoints.length === 1 && pxPerMeter) {
+                renderWorkspace();
             }
 
             if (draggedNode && mode === 'select') {
-                let newX = pos.x;
-                let newY = pos.y;
-                const rect = workspace.getBoundingClientRect();
-                
-                newX = Math.max(20, Math.min(newX, rect.width - 20));
-                newY = Math.max(20, Math.min(newY, rect.height - 20));
+                let newX = Math.max(20, Math.min(pos.x, worldWidth - 20));
+                let newY = Math.max(20, Math.min(pos.y, worldHeight - 20));
 
                 const node = nodes.find(n => n.id === draggedNode);
                 if (node) {
-                    node.x = newX;
-                    node.y = newY;
+                    node.x = Math.round(newX);
+                    node.y = Math.round(newY);
                     renderWorkspace();
                 }
             }
@@ -1337,66 +2171,96 @@ const SYMBOLS_B64 = {
         workspace.onpointermove = handleWorkspaceMove;
 
         workspace.onpointerdown = (e) => {
-            if (e.target === workspace || e.target === wireLayer || e.target === canvasBg) {
-                if (mode === 'select') {
-                    selectedNodeId = null;
-                    selectedWireIndex = null;
-                    propPanel.style.display = 'none';
-                    renderWorkspace();
-                } else if (mode === 'wire') {
-                    if (wireStartNodeId) {
-                        tempWirePoints.push(getEventPos(e));
-                        renderWorkspace();
-                    }
-                } else if (mode === 'place_component') {
-                    const pos = getEventPos(e);
-                    spawnComponentAt(componentToPlace, pos.x, pos.y);
-                } else if (mode === 'calibrate') {
-                    const pos = getEventPos(e);
-                    calibPoints.push({x: pos.x, y: pos.y});
-                    if (calibPoints.length === 1) {
-                        tooltip.innerText = "Haz clic en el segundo punto (extremo de la pared)...";
-                        renderWorkspace();
-                    } else if (calibPoints.length === 2) {
-                        tooltip.style.display = 'none';
-                        let realDist = prompt("Ingresa la distancia REAL entre estos dos puntos en Metros (ejemplo: 4.5):");
-                        if (realDist && !isNaN(realDist) && realDist > 0) {
-                            let dx = calibPoints[1].x - calibPoints[0].x;
-                            let dy = calibPoints[1].y - calibPoints[0].y;
-                            let pxDist = Math.sqrt(dx*dx + dy*dy);
-                            
-                            if (pxDist > 0) {
-                                pxPerMeter = pxDist / parseFloat(realDist);
-                                alert(`¡Escala calibrada con éxito!\n1 metro real equivale a ${pxPerMeter.toFixed(2)} píxeles en el plano.`);
-                            } else {
-                                alert("Los puntos están demasiado juntos. Inténtalo de nuevo.");
-                            }
-                        }
-                        setMode('select');
-                        analyzeSystem();
-                    }
-                } else if (mode === 'measure') {
-                    const pos = getEventPos(e);
-                    measurePoints.push({x: pos.x, y: pos.y});
-                    if (measurePoints.length === 1) {
-                        tooltip.innerText = "Mueve el ratón para ver la distancia, haz clic para terminar...";
-                        renderWorkspace();
-                    } else if (measurePoints.length === 2) {
-                        let dx = measurePoints[1].x - measurePoints[0].x;
-                        let dy = measurePoints[1].y - measurePoints[0].y;
-                        let pxDist = Math.sqrt(dx*dx + dy*dy);
-                        let mDist = pxDist / pxPerMeter;
-                        alert(`📐 Medición: ${mDist.toFixed(2)} metros.`);
-                        measurePoints = [];
-                        tooltip.innerText = "Haz clic en el punto de inicio para medir...";
-                        renderWorkspace();
-                    }
-                }
+            if (isPinching) return;
+            const isCanvasTarget = (e.target === workspace || e.target === worldStage || e.target === wireLayer || e.target === canvasBg);
+            if (!isCanvasTarget) return;
+
+            const pos = getEventPos(e);
+            mousePos = { x: pos.x, y: pos.y };
+
+            if (mode === 'pan' || e.button === 1) {
+                isPanning = true;
+                panMoved = false;
+                panStartClient = { x: e.clientX, y: e.clientY };
+                panStartOffset = { x: panX, y: panY };
+                workspace.style.cursor = 'grabbing';
                 workspace.setPointerCapture(e.pointerId);
+                return;
+            }
+
+            if (mode === 'select') {
+                // En modo Selección: arrastrar sobre el fondo vacío mueve la vista del plano (Pan táctil con 1 dedo)
+                isPanning = true;
+                panMoved = false;
+                panStartClient = { x: e.clientX, y: e.clientY };
+                panStartOffset = { x: panX, y: panY };
+                workspace.setPointerCapture(e.pointerId);
+            } else if (mode === 'wire') {
+                if (wireStartNodeId) {
+                    tempWirePoints.push({ x: Math.round(pos.x), y: Math.round(pos.y) });
+                    updateTouchBanner();
+                    renderWorkspace();
+                }
+            } else if (mode === 'place_component') {
+                spawnComponentAt(componentToPlace, pos.x, pos.y);
+            } else if (mode === 'calibrate') {
+                calibPoints.push({ x: pos.x, y: pos.y });
+                if (calibPoints.length === 1) {
+                    updateTouchBanner();
+                    renderWorkspace();
+                } else if (calibPoints.length === 2) {
+                    renderWorkspace();
+                    openCalibrateModal();
+                }
+            } else if (mode === 'measure') {
+                if (measurePoints.length >= 2) {
+                    measurePoints = [];
+                }
+                measurePoints.push({ x: pos.x, y: pos.y });
+                updateTouchBanner();
+                renderWorkspace();
             }
         };
 
+        function openCalibrateModal() {
+            const modal = document.getElementById('calibrate-modal');
+            const inp = document.getElementById('calib-distance-input');
+            if (inp) inp.value = '';
+            if (modal) {
+                modal.style.display = 'flex';
+                setTimeout(() => { if (inp) inp.focus(); }, 100);
+            }
+        }
+
+        function closeCalibrateModal(confirmScale) {
+            const modal = document.getElementById('calibrate-modal');
+            if (modal) modal.style.display = 'none';
+            if (confirmScale && calibPoints.length === 2) {
+                const inp = document.getElementById('calib-distance-input');
+                const realDist = parseFloat(inp ? inp.value : 0);
+                if (realDist && !isNaN(realDist) && realDist > 0) {
+                    const dx = calibPoints[1].x - calibPoints[0].x;
+                    const dy = calibPoints[1].y - calibPoints[0].y;
+                    const pxDist = Math.hypot(dx, dy);
+                    if (pxDist > 5) {
+                        pxPerMeter = pxDist / realDist;
+                        alert(`✅ ¡Escala calibrada con éxito!\n1 metro real equivale a ${pxPerMeter.toFixed(2)} unidades del plano.`);
+                    } else {
+                        alert("Los puntos A y B están demasiado cerca. Inténtalo de nuevo.");
+                    }
+                } else {
+                    alert("Por favor ingresa una distancia válida en metros mayor a 0.");
+                    if (modal) modal.style.display = 'flex';
+                    return;
+                }
+            }
+            calibPoints = [];
+            setMode('select');
+            analyzeSystem();
+        }
+
         function handleNodePointerDown(e, id) {
+            if (isPinching) return;
             e.stopPropagation();
             if (mode === 'select') {
                 draggedNode = id;
@@ -1406,17 +2270,50 @@ const SYMBOLS_B64 = {
                 handleNodeClick(e, id);
             } else if (mode === 'wire') {
                 handleNodeClick(e, id);
+            } else if (mode === 'pan') {
+                isPanning = true;
+                panMoved = false;
+                panStartClient = { x: e.clientX, y: e.clientY };
+                panStartOffset = { x: panX, y: panY };
+                workspace.setPointerCapture(e.pointerId);
             }
         }
 
         const handlePointerUp = (e) => {
-            draggedNode = null;
-            if (workspace.hasPointerCapture(e.pointerId)) workspace.releasePointerCapture(e.pointerId);
+            if (draggedNode !== null) {
+                draggedNode = null;
+                analyzeSystem();
+            }
+            if (draggedVertex !== null) {
+                draggedVertex = null;
+                analyzeSystem();
+            }
+            if (isPanning) {
+                isPanning = false;
+                if (mode === 'pan') workspace.style.cursor = 'grab';
+                // Si fue un toque simple sin arrastrar sobre el fondo vacío en modo 'select', deseleccionar
+                if (!panMoved && mode === 'select') {
+                    selectedNodeId = null;
+                    selectedWireIndex = null;
+                    propPanel.style.display = 'none';
+                    updateMobilePropPill();
+                    renderWorkspace();
+                }
+                panMoved = false;
+            }
+            if (workspace.hasPointerCapture && workspace.hasPointerCapture(e.pointerId)) {
+                workspace.releasePointerCapture(e.pointerId);
+            }
         };
 
         workspace.onpointerup = handlePointerUp;
         workspace.onpointercancel = handlePointerUp;
-        workspace.onpointerleave = () => { draggedNode = null; tooltip.style.display = 'none'; hoveredNode = null; renderWorkspace(); };
+        workspace.onpointerleave = (e) => {
+            if (e.pointerType === 'mouse' && !draggedNode && !draggedVertex && !isPanning) {
+                hoveredNode = null;
+                renderWorkspace();
+            }
+        };
 
         function handleNodeClick(e, id) {
             if (mode === 'erase') {
@@ -1428,6 +2325,9 @@ const SYMBOLS_B64 = {
                 if (!wireStartNodeId) {
                     wireStartNodeId = id;
                     tempWirePoints = [];
+                    const nStart = nodes.find(n => n.id === id);
+                    if (nStart) mousePos = { x: nStart.x, y: nStart.y };
+                    updateTouchBanner();
                     renderWorkspace();
                 } else {
                     if (wireStartNodeId !== id) {
@@ -1449,6 +2349,7 @@ const SYMBOLS_B64 = {
                     }
                     wireStartNodeId = null;
                     tempWirePoints = [];
+                    updateTouchBanner();
                     analyzeSystem();
                 }
             }
@@ -1463,6 +2364,12 @@ const SYMBOLS_B64 = {
                 document.getElementById('prop-type').value = node.label;
                 
                 propWireGroup.style.display = 'none';
+                if (propNodeScaleGroup) {
+                    propNodeScaleGroup.style.display = 'block';
+                    const cScale = node.customScale || 1;
+                    document.getElementById('prop-node-scale').value = cScale;
+                    document.getElementById('prop-node-scale-val').innerText = `${Math.round(cScale * 100)}%`;
+                }
 
                 if (node.type === 'board') {
                     propPowerGroup.style.display = 'none';
@@ -1474,14 +2381,17 @@ const SYMBOLS_B64 = {
                     propBoardGroup.style.display = 'none';
                     propOutletGroup.style.display = 'block';
                     document.getElementById('prop-power').value = node.power;
+                    document.getElementById('prop-voltage').value = (node.voltage || 120).toString();
                     propOutletType.value = node.loadType || '180_120';
                     document.getElementById('prop-outlet-gfci').checked = node.isGFCI || false;
                 } else {
-                    propPowerGroup.style.display = 'block';
+                    propPowerGroup.style.display = (node.type === 'switch' || node.type === 'switch3w') ? 'none' : 'block';
                     propBoardGroup.style.display = 'none';
                     propOutletGroup.style.display = 'none';
                     document.getElementById('prop-power').value = node.power;
+                    document.getElementById('prop-voltage').value = (node.voltage || 120).toString();
                 }
+                updateMobilePropPill();
                 renderWorkspace();
             }
         }
@@ -1497,6 +2407,7 @@ const SYMBOLS_B64 = {
                 propPowerGroup.style.display = 'none';
                 propOutletGroup.style.display = 'none';
                 propBoardGroup.style.display = 'none';
+                if (propNodeScaleGroup) propNodeScaleGroup.style.display = 'none';
                 propWireGroup.style.display = 'block';
                 
                 document.getElementById('prop-wire-fases').value = wire.phases !== undefined ? wire.phases : 1;
@@ -1512,15 +2423,24 @@ const SYMBOLS_B64 = {
                     let totalPx = 0;
                     let pts = [{x: n1.x, y: n1.y}, ...(wire.points || []), {x: n2.x, y: n2.y}];
                     for (let i = 0; i < pts.length - 1; i++) {
-                        totalPx += Math.sqrt(Math.pow(pts[i+1].x - pts[i].x, 2) + Math.pow(pts[i+1].y - pts[i].y, 2));
+                        totalPx += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
                     }
                     let realLen = (totalPx / pxPerMeter).toFixed(2);
                     lenInput.value = `${realLen} Metros`;
                 } else {
                     lenInput.value = `¡Escala no calibrada!`;
                 }
+                updateMobilePropPill();
             }
             renderWorkspace();
+        }
+
+        function resetSelectedWireCorners() {
+            if (selectedWireIndex !== null && wires[selectedWireIndex]) {
+                wires[selectedWireIndex].points = [];
+                analyzeSystem();
+                selectWire(selectedWireIndex);
+            }
         }
 
         function updateOutletType() {
@@ -1537,6 +2457,7 @@ const SYMBOLS_B64 = {
                         }
                     }
                     document.getElementById('prop-power').value = node.power;
+                    document.getElementById('prop-voltage').value = (node.voltage || 120).toString();
                     analyzeSystem();
                 }
             }
@@ -1545,6 +2466,7 @@ const SYMBOLS_B64 = {
         function updateSelectedNode() {
             if (selectedNodeId) {
                 const node = nodes.find(n => n.id === selectedNodeId);
+                if (!node) return;
                 if (node.type === 'board') {
                     const newCircuits = parseInt(document.getElementById('prop-circuits').value);
                     if (!isNaN(newCircuits) && newCircuits > 0) node.circuits = newCircuits;
@@ -1552,10 +2474,10 @@ const SYMBOLS_B64 = {
                     const newPower = parseFloat(document.getElementById('prop-power').value);
                     if (!isNaN(newPower) && newPower >= 0) {
                         node.power = newPower;
-                        if(node.type === 'outlet') {
-                            node.loadType = 'custom';
-                            propOutletType.value = 'custom';
-                        }
+                    }
+                    const newVolt = parseInt(document.getElementById('prop-voltage').value);
+                    if (newVolt === 120 || newVolt === 240) {
+                        node.voltage = newVolt;
                     }
                     if (node.type === 'outlet') {
                         node.isGFCI = document.getElementById('prop-outlet-gfci').checked;
@@ -1572,7 +2494,6 @@ const SYMBOLS_B64 = {
                 let t = parseInt(document.getElementById('prop-wire-tierras').value);
                 let routing = document.getElementById('prop-wire-routing').value;
                 
-                // Evitar números negativos o vacíos
                 if(isNaN(p) || p < 0) p = 0;
                 if(isNaN(n) || n < 0) n = 0;
                 if(isNaN(t) || t < 0) t = 0;
@@ -1596,6 +2517,7 @@ const SYMBOLS_B64 = {
                 selectedWireIndex = null;
             }
             propPanel.style.display = 'none';
+            updateMobilePropPill();
             analyzeSystem();
         }
 
@@ -1609,10 +2531,13 @@ const SYMBOLS_B64 = {
                 wireStartNodeId = null;
                 tempWirePoints = [];
                 bgImageBase64 = null;
-                pxPerMeter = null; // Reiniciar calibración
+                pxPerMeter = null;
+                setWorldDimensions(1600, 1100);
                 canvasBg.style.backgroundImage = 'none';
                 document.getElementById('file-input').value = '';
                 propPanel.style.display = 'none';
+                updateMobilePropPill();
+                fitWorldToScreen();
                 analyzeSystem();
             }
         }
@@ -1894,10 +2819,11 @@ const SYMBOLS_B64 = {
 
         function exportImage() {
             const canvas = document.createElement('canvas');
-            const rect = workspace.getBoundingClientRect();
+            const wW = worldWidth || 1600;
+            const wH = worldHeight || 1100;
             const legendWidth = 320;
-            canvas.width = rect.width + legendWidth;
-            canvas.height = Math.max(rect.height, 600);
+            canvas.width = wW + legendWidth;
+            canvas.height = Math.max(wH, 600);
             const ctx = canvas.getContext('2d');
 
             ctx.fillStyle = '#ffffff';
@@ -1905,8 +2831,8 @@ const SYMBOLS_B64 = {
             
             // Draw separator line
             ctx.beginPath();
-            ctx.moveTo(rect.width, 0);
-            ctx.lineTo(rect.width, canvas.height);
+            ctx.moveTo(wW, 0);
+            ctx.lineTo(wW, canvas.height);
             ctx.strokeStyle = '#cccccc';
             ctx.lineWidth = 2;
             ctx.stroke();
@@ -1914,20 +2840,17 @@ const SYMBOLS_B64 = {
             if (bgImageBase64) {
                 const img = new Image();
                 img.onload = async () => {
-                    ctx.globalAlpha = 0.4;
-                    let scale = Math.min(rect.width / img.width, rect.height / img.height);
-                    let x = (rect.width / 2) - (img.width / 2) * scale;
-                    let y = (rect.height / 2) - (img.height / 2) * scale;
-                    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                    ctx.globalAlpha = 0.45;
+                    ctx.drawImage(img, 0, 0, wW, wH);
                     ctx.globalAlpha = 1.0;
                     await drawOverlay(canvas, ctx);
-                    await drawLegend(ctx, rect.width, legendWidth, canvas.height);
+                    await drawLegend(ctx, wW, legendWidth, canvas.height);
                     triggerDownload(canvas);
                 };
                 img.src = bgImageBase64;
             } else {
                 drawOverlay(canvas, ctx).then(async () => {
-                    await drawLegend(ctx, rect.width, legendWidth, canvas.height);
+                    await drawLegend(ctx, wW, legendWidth, canvas.height);
                     triggerDownload(canvas);
                 });
             }
@@ -2066,6 +2989,7 @@ const SYMBOLS_B64 = {
         }
 
         async function drawOverlay(canvas, ctx) {
+            const wireScale = Math.max(0.55, Math.min(1.6, symbolScale));
             wires.forEach((wire) => {
                 const n1 = nodes.find(n => n.id === wire.from);
                 const n2 = nodes.find(n => n.id === wire.to);
@@ -2076,7 +3000,7 @@ const SYMBOLS_B64 = {
                     if (circuit) {
                         color = circuit.color;
                         if (circuit.vDropPercent > 3) {
-                            color = '#e74c3c'; // Red for voltage drop warning
+                            color = '#e74c3c';
                             isWarning = true;
                         }
                     }
@@ -2089,7 +3013,7 @@ const SYMBOLS_B64 = {
                         ctx.lineTo(allPoints[j].x, allPoints[j].y);
                     }
                     ctx.strokeStyle = color;
-                    ctx.lineWidth = circuit ? 4 : 3;
+                    ctx.lineWidth = (circuit ? 4 : 3) * wireScale;
                     
                     if (wire.routing === 'piso') {
                         ctx.setLineDash([8, 8]);
@@ -2133,8 +3057,8 @@ const SYMBOLS_B64 = {
                         let py = ux;
                         let mx = (longestSegment.p1.x + longestSegment.p2.x) / 2;
                         let my = (longestSegment.p1.y + longestSegment.p2.y) / 2;
-                        let spacing = 8;
-                        let markLen = 16;
+                        let spacing = 8 * wireScale;
+                        let markLen = 16 * wireScale;
                         
                         for (let i = 0; i < totalMarks; i++) {
                             let offset = (i - (totalMarks - 1) / 2) * spacing;
@@ -2146,25 +3070,21 @@ const SYMBOLS_B64 = {
                             let p2x = cx - px * markLen/2;
                             let p2y = cy - py * markLen/2;
 
-                            // 1. Línea Base
                             ctx.beginPath();
                             ctx.moveTo(p1x, p1y);
                             ctx.lineTo(p2x, p2y);
                             ctx.strokeStyle = markData[i].color;
-                            ctx.lineWidth = 3;
+                            ctx.lineWidth = 3 * wireScale;
                             ctx.stroke();
 
-                            // 2. Tierra (T)
                             if (markData[i].type === 'ground') {
                                 ctx.beginPath();
-                                ctx.moveTo(p1x + ux * 5, p1y + uy * 5);
-                                ctx.lineTo(p1x - ux * 5, p1y - uy * 5);
+                                ctx.moveTo(p1x + ux * 5 * wireScale, p1y + uy * 5 * wireScale);
+                                ctx.lineTo(p1x - ux * 5 * wireScale, p1y - uy * 5 * wireScale);
                                 ctx.stroke();
-                            }
-                            // 3. Neutro (P / Bombón)
-                            else if (markData[i].type === 'neutral') {
+                            } else if (markData[i].type === 'neutral') {
                                 ctx.beginPath();
-                                ctx.arc(p1x, p1y, 3.5, 0, 2 * Math.PI);
+                                ctx.arc(p1x, p1y, 3.5 * wireScale, 0, 2 * Math.PI);
                                 ctx.fillStyle = markData[i].color;
                                 ctx.fill();
                             }
@@ -2177,6 +3097,7 @@ const SYMBOLS_B64 = {
             ctx.textBaseline = 'middle';
             
             for (const node of nodes) {
+                const effScale = symbolScale * (node.customScale || 1);
                 let color = '#2c3e50';
                 if (node.type !== 'board') {
                     let circuit = globalCircuits.find(c => c.nodes.includes(node));
@@ -2185,26 +3106,30 @@ const SYMBOLS_B64 = {
                     color = '#e74c3c';
                 }
 
+                ctx.save();
+                ctx.translate(node.x, node.y);
+                ctx.scale(effScale, effScale);
+
                 ctx.fillStyle = '#ffffff';
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 3;
                 
                 ctx.beginPath();
                 if (node.rounded) {
-                    ctx.arc(node.x, node.y, 22, 0, 2 * Math.PI);
+                    ctx.arc(0, 0, 22, 0, 2 * Math.PI);
                 } else {
-                    ctx.rect(node.x - 22, node.y - 22, 44, 44);
+                    ctx.rect(-22, -22, 44, 44);
                 }
                 ctx.fill();
                 ctx.stroke();
 
                 const img = await loadImage(node.img);
                 if (img) {
-                    ctx.drawImage(img, node.x - 14, node.y - 14, 28, 28);
+                    ctx.drawImage(img, -14, -14, 28, 28);
                 } else {
                     ctx.font = '10px Arial';
                     ctx.fillStyle = '#000000';
-                    ctx.fillText('Img', node.x, node.y);
+                    ctx.fillText('Img', 0, 0);
                 }
 
                 if (showNodeLabels) {
@@ -2213,79 +3138,36 @@ const SYMBOLS_B64 = {
                         if (circ) {
                             ctx.font = 'bold 12px Arial';
                             ctx.fillStyle = '#2980b9';
-                            ctx.fillText(`C-${circ.id}`, node.x - 12, node.y - 16);
+                            ctx.fillText(`C-${circ.id}`, -12, -16);
                         }
                     }
                     if (node.isGFCI) {
                         ctx.font = 'bold 10px Arial';
                         ctx.fillStyle = 'red';
-                        ctx.fillText('GFCI', node.x - 12, node.y + 24);
+                        ctx.fillText('GFCI', -12, 24);
                     }
                 }
 
-                ctx.font = 'bold 10px Arial';
-                let extraInfo = '';
-                if (node.type === 'board') extraInfo = `${node.usedSlots || 0}/${node.circuits} Vías`;
-                else if (node.power > 0) extraInfo = `${node.power}W`;
-                
-                let labelText = `${node.label} ${extraInfo}`;
-                
-                let textWidth = ctx.measureText(labelText).width;
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                ctx.fillRect(node.x - (textWidth/2) - 4, node.y + 25 - 6, textWidth + 8, 12);
-                ctx.strokeStyle = '#ddd';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(node.x - (textWidth/2) - 4, node.y + 25 - 6, textWidth + 8, 12);
-                
-                ctx.fillStyle = '#333333';
-                ctx.fillText(labelText, node.x, node.y + 25);
-            }
-
-            // --- DRAW HOVER TOOLTIP ---
-            if (hoveredNode && mode === 'select' && !draggedNode) {
-                let node = hoveredNode;
-                let circuit = globalCircuits.find(c => c.nodes.includes(node));
-                let circText = circuit ? `Circuito ${circuit.id}` : 'Sin Circuito';
-                if (node.type === 'board') circText = `${node.usedSlots || 0}/${node.circuits} Vías`;
-                
-                let lines = [
-                    `Tipo: ${node.label}`,
-                    `Estado: ${circText}`
-                ];
-                if (node.power > 0) {
-                    lines.push(`Potencia: ${node.power} W`);
-                    lines.push(`Voltaje: ${node.voltage || 120} V`);
+                if (showNodeCaptions) {
+                    ctx.font = 'bold 10px Arial';
+                    let extraInfo = '';
+                    if (node.type === 'board') extraInfo = `${node.usedSlots || 0}/${node.circuits} Vías`;
+                    else if (node.power > 0) extraInfo = `${node.power}W`;
+                    
+                    let labelText = `${node.label} ${extraInfo}`;
+                    
+                    let textWidth = ctx.measureText(labelText).width;
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(-(textWidth/2) - 4, 25 - 6, textWidth + 8, 12);
+                    ctx.strokeStyle = '#ddd';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(-(textWidth/2) - 4, 25 - 6, textWidth + 8, 12);
+                    
+                    ctx.fillStyle = '#333333';
+                    ctx.fillText(labelText, 0, 25);
                 }
-                
-                ctx.font = '12px Arial';
-                let maxWidth = 0;
-                lines.forEach(l => {
-                    let w = ctx.measureText(l).width;
-                    if (w > maxWidth) maxWidth = w;
-                });
-                
-                let tooltipW = maxWidth + 16;
-                let tooltipH = (lines.length * 16) + 16;
-                let tx = node.x + 15;
-                let ty = node.y - tooltipH - 5;
-                if (tx + tooltipW > canvas.width) tx = node.x - tooltipW - 15;
-                if (ty < 0) ty = node.y + 25;
-                
-                // Draw tooltip box
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.roundRect(tx, ty, tooltipW, tooltipH, 5);
-                ctx.fill();
-                ctx.stroke();
-                
-                ctx.fillStyle = '#fff';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'top';
-                lines.forEach((l, i) => {
-                    ctx.fillText(l, tx + 8, ty + 8 + (i * 16));
-                });
+
+                ctx.restore();
             }
         }
 
@@ -2298,7 +3180,20 @@ const SYMBOLS_B64 = {
             }
             
             try {
-                const data = { nodes, wires, idCounter, bgImageBase64, pxPerMeter, projectPrices, customCosts, taxConfig };
+                const data = {
+                    nodes,
+                    wires,
+                    idCounter,
+                    bgImageBase64,
+                    pxPerMeter,
+                    projectPrices,
+                    customCosts,
+                    taxConfig,
+                    worldWidth,
+                    worldHeight,
+                    symbolScale,
+                    showNodeCaptions
+                };
                 localStorage.setItem('stem-electrical-pro', JSON.stringify(data));
                 
                 const btn = document.querySelector('.btn-save');
@@ -2324,7 +3219,20 @@ const SYMBOLS_B64 = {
                 alert("No hay elementos para exportar.");
                 return;
             }
-            const data = { nodes, wires, idCounter, bgImageBase64, pxPerMeter, projectPrices, customCosts, taxConfig };
+            const data = {
+                nodes,
+                wires,
+                idCounter,
+                bgImageBase64,
+                pxPerMeter,
+                projectPrices,
+                customCosts,
+                taxConfig,
+                worldWidth,
+                worldHeight,
+                symbolScale,
+                showNodeCaptions
+            };
             const jsonStr = JSON.stringify(data);
             const blob = new Blob([jsonStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
@@ -2347,7 +3255,7 @@ const SYMBOLS_B64 = {
                 if(applyDesignData(dataStr)) {
                     alert("Proyecto cargado exitosamente.");
                 }
-                input.value = ""; // Reset input
+                input.value = "";
             };
             reader.readAsText(file);
         }
@@ -2364,11 +3272,39 @@ const SYMBOLS_B64 = {
                 if (data.projectPrices) projectPrices = data.projectPrices;
                 if (data.customCosts) customCosts = data.customCosts;
                 if (data.taxConfig) taxConfig = data.taxConfig;
+                if (typeof data.symbolScale === 'number') {
+                    symbolScale = Math.max(0.35, Math.min(2.0, data.symbolScale));
+                    updateSymbolScaleUI();
+                }
+                if (typeof data.showNodeCaptions === 'boolean') {
+                    showNodeCaptions = data.showNodeCaptions;
+                    worldStage.classList.toggle('hide-node-captions', !showNodeCaptions);
+                    const btn = document.getElementById('hud-btn-captions');
+                    if (btn) btn.classList.toggle('active', !showNodeCaptions);
+                }
+
+                if (data.worldWidth && data.worldHeight) {
+                    setWorldDimensions(data.worldWidth, data.worldHeight);
+                }
                 
                 if (bgImageBase64) {
                     canvasBg.style.backgroundImage = `url(${bgImageBase64})`;
+                    if (!data.worldWidth || !data.worldHeight) {
+                        const img = new Image();
+                        img.onload = () => {
+                            const maxSide = 1600;
+                            const scale = maxSide / Math.max(img.naturalWidth || 1600, img.naturalHeight || 1100);
+                            setWorldDimensions(Math.round((img.naturalWidth || 1600) * scale), Math.round((img.naturalHeight || 1100) * scale));
+                            fitWorldToScreen();
+                            renderWorkspace();
+                        };
+                        img.src = bgImageBase64;
+                    }
                 } else {
                     canvasBg.style.backgroundImage = 'none';
+                    if (!data.worldWidth || !data.worldHeight) {
+                        setWorldDimensions(1600, 1100);
+                    }
                 }
                 
                 // Retrocompatibilidad con diseños anteriores
@@ -2398,6 +3334,9 @@ const SYMBOLS_B64 = {
                 wireStartNodeId = null;
                 setMode('select');
                 propPanel.style.display = 'none';
+                updateMobilePropPill();
+                closeMobileDrawers();
+                fitWorldToScreen();
                 
                 analyzeSystem();
                 return true;
@@ -2929,14 +3868,27 @@ const SYMBOLS_B64 = {
         // --- SOPORTE DE TECLADO ---
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Delete' || e.key === 'Backspace') {
-                if ((selectedNodeId !== null || selectedWireIndex !== null) && e.target.tagName.toLowerCase() !== 'input') {
+                const tag = e.target.tagName ? e.target.tagName.toLowerCase() : '';
+                if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+                if (mode === 'wire' && wireStartNodeId && tempWirePoints.length > 0 && e.key === 'Backspace') {
+                    e.preventDefault();
+                    undoLastWireCorner();
+                    return;
+                }
+                if (selectedNodeId !== null || selectedWireIndex !== null) {
                     deleteSelectedElement();
                 }
             }
         });
 
-        // Iniciar
-        analyzeSystem();
+        // Iniciar escenario invariante (#world-stage) y encuadrar cámara
+        setWorldDimensions(1600, 1100);
+        requestAnimationFrame(() => {
+            fitWorldToScreen();
+            const r = workspace.getBoundingClientRect();
+            lastWorkspaceSize = { w: r.width, h: r.height };
+            analyzeSystem();
+        });
 
     </script>
 </body>
