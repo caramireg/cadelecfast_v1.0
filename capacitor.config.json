@@ -1,0 +1,9 @@
+{
+  "appId": "com.cadelec.fast",
+  "appName": "Cadelec Fast",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

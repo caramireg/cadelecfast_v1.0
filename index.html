@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadelec Fast Web — Simulador Eléctrico Gratuito para Celulares, Tablets y PC</title>
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
+    <title>Cadelec Fast Web — Simulador Eléctrico 100% Offline para Celulares, Tablets y PC</title>
     <style>
         :root {
             --primary: #2c3e50;
@@ -162,12 +168,12 @@
     <!-- BANNER PROMOCIONAL V2 -->
     <div class="top-promo-bar">
         🚀 ¡Ya está disponible Cadelec Fast PRO v2.0 (Aplicación Nativa de Escritorio para Windows)! <br>
-        <a href="https://github.com/caramireg/cadelecfast_v1.0/releases/tag/v2.0.0" target="_blank" style="color: #1a252f; text-decoration: underline;">Descarga la versión de escritorio o déjanos tus sugerencias en GitHub aquí.</a>
+        <a href="javascript:void(0)" onclick="openExternalPromo()" style="color: #1a252f; text-decoration: underline;">Descarga la versión de escritorio o déjanos tus sugerencias en GitHub aquí.</a>
     </div>
 
     <div class="login-container">
         <!-- BANNER PROMOCIONAL V2 -->
-        <div style="background-color: #f1c40f; color: #2c3e50; padding: 14px; border-radius: 8px; margin-bottom: 18px; font-weight: bold; border: 2px solid #f39c12; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('https://github.com/caramireg/cadelecfast_v1.0/releases/tag/v2.0.0', '_blank')">
+        <div style="background-color: #f1c40f; color: #2c3e50; padding: 14px; border-radius: 8px; margin-bottom: 18px; font-weight: bold; border: 2px solid #f39c12; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="openExternalPromo()">
             <h3 style="margin: 0 0 4px 0; color: #d35400; font-size: 1rem;">🚀 ¿Buscas Proyectos Avanzados?</h3>
             <p style="margin: 0; font-size: 0.84rem;">Prueba Cadelec Fast PRO V2.0 con motor multicircuito avanzado y licenciamiento en la nube.</p>
             <button type="button" style="margin-top: 8px; background-color: #e67e22; padding: 8px; font-size: 13px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">Descargar Cadelec PRO V2</button>
@@ -175,11 +181,12 @@
 
         <img src="CADELEC.png" alt="Cadelec fast" class="logo">
         <h2>Cadelec Fast Web — Edición Gratuita</h2>
-        <p class="subtitle">Diseña planos eléctricos simples, calcula cuadros de cargas RETIE y genera presupuestos listos para WhatsApp desde tu celular, tablet o PC.</p>
+        <p class="subtitle">Diseña planos eléctricos simples, calcula cuadros de cargas RETIE y genera presupuestos listos para WhatsApp desde tu celular, tablet o PC (100% Offline).</p>
 
         <div class="feature-badges">
             <span class="badge">📱 Táctil (Celular y Tablet)</span>
             <span class="badge">🏠 8 Planos de Casas Incluidos</span>
+            <span class="badge">📴 Funciona 100% Offline</span>
             <span class="badge">⚡ Cálculos RETIE + Presupuesto</span>
         </div>
         
@@ -191,14 +198,64 @@
             
             <button type="submit">Ingresar al Simulador Web</button>
             <button type="button" class="btn-quick-access" onclick="quickLogin()">⚡ Entrar en 1 Clic (Usar Clave Gratuita)</button>
+            <button type="button" id="btn-install-pwa" style="display:none; margin-top: 8px; background-color: #8e44ad; font-size: 13px; padding: 10px;" onclick="installOfflinePwa()">📲 Instalar App Offline en tu Celular / Tablet</button>
             <div id="errorMessage" class="error-message">Contraseña incorrecta. Usa la clave gratuita: cadelec2026</div>
         </form>
     </div>
 
     <script>
+        // Si ya está instalada como APK (Capacitor) o PWA Standalone, entrar directo al simulador
+        (function() {
+            const isStandaloneApp = Boolean(
+                window.Capacitor ||
+                (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+                window.navigator.standalone === true
+            );
+            if (isStandaloneApp) {
+                try {
+                    sessionStorage.setItem('cadelec_auth', 'cadelec2026');
+                    localStorage.setItem('cadelec_auth', 'cadelec2026');
+                } catch (_) {}
+                window.location.href = 'app.html';
+            } else if (localStorage.getItem('cadelec_auth') === 'cadelec2026') {
+                const pwdInp = document.getElementById('password');
+                if (pwdInp) pwdInp.value = 'cadelec2026';
+            }
+        })();
+
+        let deferredInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            const btn = document.getElementById('btn-install-pwa');
+            if (btn) btn.style.display = 'block';
+        });
+
+        async function installOfflinePwa() {
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                try { await deferredInstallPrompt.userChoice; } catch (_) {}
+                deferredInstallPrompt = null;
+                const btn = document.getElementById('btn-install-pwa');
+                if (btn) btn.style.display = 'none';
+            }
+        }
+
+        function openExternalPromo() {
+            const url = 'https://github.com/caramireg/cadelecfast_v1.0/releases/tag/v2.0.0';
+            if (navigator.onLine === false) {
+                alert("📴 Estás en Modo Offline.\nCuando tengas conexión a internet, descarga Cadelec PRO V2 para PC en:\n" + url);
+                return;
+            }
+            window.open(url, '_blank');
+        }
+
         function quickLogin() {
             document.getElementById('password').value = 'cadelec2026';
-            sessionStorage.setItem('cadelec_auth', 'cadelec2026');
+            try {
+                sessionStorage.setItem('cadelec_auth', 'cadelec2026');
+                localStorage.setItem('cadelec_auth', 'cadelec2026');
+            } catch (_) {}
             window.location.href = 'app.html';
         }
 
@@ -209,13 +266,22 @@
             
             if (pass === 'cadelec2026') {
                 errorMsg.style.display = 'none';
-                sessionStorage.setItem('cadelec_auth', pass);
+                try {
+                    sessionStorage.setItem('cadelec_auth', pass);
+                    localStorage.setItem('cadelec_auth', pass);
+                } catch (_) {}
                 window.location.href = 'app.html';
             } else {
                 errorMsg.style.display = 'block';
                 document.getElementById('password').value = '';
                 document.getElementById('password').focus();
             }
+        }
+
+        if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            });
         }
     </script>
 </body>

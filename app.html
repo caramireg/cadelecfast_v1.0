@@ -2,15 +2,36 @@
 <html lang="es">
 <head>
     <script>
-        if (sessionStorage.getItem('cadelec_auth') !== 'cadelec2026') {
-            window.location.href = 'index.html';
-        }
+        (function() {
+            const isStandaloneApp = Boolean(
+                window.Capacitor ||
+                (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+                window.navigator.standalone === true
+            );
+            const hasAuth = (
+                sessionStorage.getItem('cadelec_auth') === 'cadelec2026' ||
+                localStorage.getItem('cadelec_auth') === 'cadelec2026' ||
+                isStandaloneApp
+            );
+            if (!hasAuth) {
+                window.location.href = 'index.html';
+            } else {
+                try {
+                    sessionStorage.setItem('cadelec_auth', 'cadelec2026');
+                    localStorage.setItem('cadelec_auth', 'cadelec2026');
+                } catch (_) {}
+            }
+        })();
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CADELEC FAST - Simulador Eléctrico para Visitas en Terreno</title>
-    <!-- Incluir html2canvas para la captura de pantalla de presupuestos -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
+    <title>CADELEC FAST - Simulador Eléctrico 100% Offline (Celular, Tablet y PC)</title>
     <style>
         :root {
             --primary: #2c3e50;
@@ -829,7 +850,8 @@
         <button class="mobile-close-drawer" onclick="closeMobileDrawers()">✖ Cerrar Panel y Volver al Plano</button>
         <div class="header">
             <img src="CADELEC.png" style="width: 100%; max-width: 180px; margin-bottom: 10px;" alt="Cadelec fast">
-            <button onclick="window.open('https://github.com/caramireg/cadelecfast_v1.0/releases/tag/v2.0.0', '_blank')" style="width:100%; padding:10px; background:#f1c40f; color:#2c3e50; font-weight:bold; border:none; border-radius:6px; cursor:pointer; margin-bottom:10px; font-size: 14px; animation: pulse 2s infinite;">🚀 Descargar Cadelec V2</button>
+            <button onclick="openExternalPromoLink()" style="width:100%; padding:10px; background:#f1c40f; color:#2c3e50; font-weight:bold; border:none; border-radius:6px; cursor:pointer; margin-bottom:6px; font-size: 14px; animation: pulse 2s infinite;">🚀 Descargar Cadelec V2</button>
+            <button id="btn-pwa-install-sidebar" onclick="promptInstallOfflineApp()" style="display:none; width:100%; padding:8px; background:#27ae60; color:#fff; font-weight:bold; border:none; border-radius:6px; cursor:pointer; margin-bottom:8px; font-size: 13px;">📲 Instalar App Offline</button>
             <p>Herramientas y Componentes</p>
         </div>
 
@@ -1307,19 +1329,38 @@
         </div>
     </div>
 
-    <!-- Modal de Confirmación antes de Recargar (Al presionar F5 / Ctrl+R) -->
+    <!-- Modal de Confirmación antes de Recargar (Al presionar F5 / Ctrl+R o Botón Atrás) -->
     <div class="modal-overlay" id="reload-confirm-modal">
         <div class="modal-content" style="max-width: 440px; text-align: center;">
             <button class="modal-close" onclick="closeReloadConfirmModal()">✖</button>
-            <h2 style="color: var(--danger); margin-bottom: 10px;">⚠️ ¿Guardar cambios antes de recargar?</h2>
+            <h2 style="color: var(--danger); margin-bottom: 10px;">⚠️ ¿Guardar cambios antes de salir/recargar?</h2>
             <p style="font-size: 0.9rem; color: #444; margin-bottom: 16px; line-height: 1.4;">
-                Tienes cambios en tu diseño eléctrico actual. Antes de recargar la página, puedes guardar tu avance para no perder nada:
+                Tienes cambios en tu diseño eléctrico actual. Antes de recargar o cerrar, puedes guardar tu avance para no perder nada:
             </p>
             <div style="display: flex; flex-direction: column; gap: 8px;">
-                <button type="button" class="btn btn-save" style="padding: 11px; font-size: 0.9rem;" onclick="saveAndReload()">💾 Guardar en el Navegador y Recargar</button>
-                <button type="button" class="btn" style="background: #34495e; padding: 11px; font-size: 0.9rem;" onclick="downloadAndReload()">⬇️ Descargar Archivo (.JSON) y Recargar</button>
+                <button type="button" class="btn btn-save" style="padding: 11px; font-size: 0.9rem;" onclick="saveAndReload()">💾 Guardar en el Dispositivo y Recargar</button>
+                <button type="button" class="btn" style="background: #34495e; padding: 11px; font-size: 0.9rem;" onclick="downloadAndReload()">⬇️ Exportar Archivo (.JSON) y Recargar</button>
                 <button type="button" class="btn btn-clear" style="padding: 10px; font-size: 0.85rem;" onclick="forceReloadWithoutSaving()">🔄 Recargar sin Guardar</button>
                 <button type="button" class="btn" style="background: #95a5a6; padding: 9px; font-size: 0.85rem;" onclick="closeReloadConfirmModal()">✖ Cancelar y Seguir Diseñando</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Vista Previa y Guardado compatible con APK / Celular / Tablet -->
+    <div class="modal-overlay" id="mobile-export-preview-modal">
+        <div class="modal-content" style="max-width: 680px; text-align: center;">
+            <button class="modal-close" onclick="closeMobileExportPreviewModal()">✖</button>
+            <h2 id="mobile-export-title" style="color: var(--primary); margin-bottom: 8px; font-size: 1.1rem;">📷 Imagen Generada</h2>
+            <p style="font-size: 0.82rem; color: #555; margin-bottom: 10px;">
+                En celulares/tablets puedes compartir directo por WhatsApp, guardar en tu galería o mantener presionada la imagen para guardarla:
+            </p>
+            <div style="max-height: 52vh; overflow: auto; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; padding: 6px; margin-bottom: 12px;">
+                <img id="mobile-export-preview-img" src="" alt="Vista previa de exportación" style="max-width: 100%; height: auto; border-radius: 4px;">
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                <button type="button" class="btn" style="background: #25d366; color: #fff; flex: 1; min-width: 170px;" onclick="shareCurrentPreviewImage()">📲 Compartir / Enviar a WhatsApp</button>
+                <button type="button" class="btn" style="background: #2980b9; color: #fff; flex: 1; min-width: 170px;" onclick="downloadCurrentPreviewImage()">⬇️ Descargar Imagen (.PNG)</button>
+                <button type="button" class="btn" style="background: #7f8c8d; color: #fff; min-width: 110px;" onclick="closeMobileExportPreviewModal()">Cerrar</button>
             </div>
         </div>
     </div>
@@ -1872,6 +1913,19 @@ const SYMBOLS_B64 = {
             reader.readAsDataURL(file);
         }
 
+        const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/caramireg/cadelecfast_v1.0/main/';
+
+        function handleThumbError(imgEl, rawFile) {
+            const step = parseInt(imgEl.getAttribute('data-fallback-step') || '0', 10);
+            if (step === 0) {
+                imgEl.setAttribute('data-fallback-step', '1');
+                imgEl.src = encodeURI(rawFile.replace('Diseños/', 'Disenos/'));
+            } else if (step === 1) {
+                imgEl.setAttribute('data-fallback-step', '2');
+                imgEl.src = GITHUB_RAW_BASE + encodeURI(rawFile);
+            }
+        }
+
         function renderSamplePlansGallery() {
             const grid = document.getElementById('sample-plans-grid');
             if (!grid || grid.children.length > 0) return;
@@ -1879,7 +1933,7 @@ const SYMBOLS_B64 = {
                 const safeUrl = encodeURI(item.file);
                 return `
                     <div class="sample-plan-card" onclick="loadSamplePlan('${item.file}', '${item.title}', false)">
-                        <img class="sample-plan-thumb" src="${safeUrl}" alt="${item.title}" loading="lazy">
+                        <img class="sample-plan-thumb" src="${safeUrl}" data-fallback-step="0" onerror="handleThumbError(this, '${item.file}')" alt="${item.title}" loading="lazy">
                         <div class="sample-plan-info">
                             <div>
                                 <div class="sample-plan-title">🏠 ${item.title}</div>
@@ -1896,6 +1950,7 @@ const SYMBOLS_B64 = {
             renderSamplePlansGallery();
             const modal = document.getElementById('sample-plans-modal');
             if (modal) modal.style.display = 'flex';
+            pushMobileHistoryGuard();
         }
 
         function closeSamplePlansModal() {
@@ -1910,7 +1965,10 @@ const SYMBOLS_B64 = {
                 }
             }
             const img = new Image();
-            img.crossOrigin = "anonymous";
+            let fallbackStep = 0;
+            if (window.location.protocol !== 'file:') {
+                img.crossOrigin = "anonymous";
+            }
             img.onload = () => {
                 pushUndoState();
                 const opt = optimizePlanImage(img, 1600, 0.84);
@@ -1952,7 +2010,18 @@ const SYMBOLS_B64 = {
                 markProjectDirty();
             };
             img.onerror = () => {
-                alert("No se pudo cargar el plano de ejemplo desde la carpeta Diseños/. Verifica que la carpeta 'Diseños' esté junto a app.html.");
+                if (fallbackStep === 0) {
+                    fallbackStep = 1;
+                    img.src = encodeURI(filePath.replace('Diseños/', 'Disenos/'));
+                    return;
+                }
+                if (fallbackStep === 1) {
+                    fallbackStep = 2;
+                    img.crossOrigin = "anonymous";
+                    img.src = GITHUB_RAW_BASE + encodeURI(filePath);
+                    return;
+                }
+                alert("No se pudo cargar el plano de ejemplo desde la carpeta Diseños/, Disenos/ ni desde GitHub.");
             };
             img.src = encodeURI(filePath);
         }
@@ -3321,9 +3390,36 @@ const SYMBOLS_B64 = {
             });
         }
 
-        // --- SISTEMAS DE EXPORTACIÓN Y COMPARTIR (MÓVIL / WHATSAPP / PC) ---
+        // --- SISTEMAS DE EXPORTACIÓN Y COMPARTIR (MÓVIL / APK / WHATSAPP / PC) ---
+
+        let lastPreviewCanvas = null;
+        let lastPreviewFilename = 'Plano_Cadelec.png';
+        let lastPreviewTitle = 'Plano Eléctrico RETIE';
+
+        function isMobileOrApkEnv() {
+            const ua = navigator.userAgent || '';
+            return Boolean(
+                window.Capacitor ||
+                /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ||
+                /; wv\)/.test(ua) ||
+                (window.innerWidth <= 980)
+            );
+        }
 
         function downloadBlobFile(blob, filename) {
+            // En entorno APK / WebView móvil, intentar primero compartir el archivo nativamente si el WebView bloquea descargas blob:
+            if (Boolean(window.Capacitor || /; wv\)/.test(navigator.userAgent || '')) && navigator.canShare) {
+                try {
+                    const f = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+                    if (navigator.canShare({ files: [f] })) {
+                        navigator.share({
+                            title: filename,
+                            text: `${filename} — Generado con CADELEC FAST`,
+                            files: [f]
+                        }).catch(() => {});
+                    }
+                } catch (_) {}
+            }
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
@@ -3331,15 +3427,76 @@ const SYMBOLS_B64 = {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            setTimeout(() => URL.revokeObjectURL(url), 1500);
+        }
+
+        function openMobileExportPreviewModal(canvas, filename, shareTitle) {
+            lastPreviewCanvas = canvas;
+            lastPreviewFilename = filename;
+            lastPreviewTitle = shareTitle;
+            const modal = document.getElementById('mobile-export-preview-modal');
+            const imgEl = document.getElementById('mobile-export-preview-img');
+            const titleEl = document.getElementById('mobile-export-title');
+            if (titleEl) titleEl.innerText = `📷 ${shareTitle}`;
+            if (imgEl && canvas) {
+                try {
+                    imgEl.src = canvas.toDataURL('image/png');
+                } catch (_) {}
+            }
+            if (modal) {
+                modal.style.display = 'flex';
+                pushMobileHistoryGuard();
+            }
+        }
+
+        function closeMobileExportPreviewModal() {
+            const modal = document.getElementById('mobile-export-preview-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function shareCurrentPreviewImage() {
+            if (!lastPreviewCanvas) return;
+            if (navigator.canShare && lastPreviewCanvas.toBlob) {
+                lastPreviewCanvas.toBlob(async (blob) => {
+                    if (!blob) {
+                        triggerDownload(lastPreviewCanvas, lastPreviewFilename);
+                        return;
+                    }
+                    const file = new File([blob], lastPreviewFilename, { type: 'image/png' });
+                    if (navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({
+                                title: lastPreviewTitle,
+                                text: `${lastPreviewTitle} — Diseñado con CADELEC FAST`,
+                                files: [file]
+                            });
+                            return;
+                        } catch (err) {
+                            if (err && err.name === 'AbortError') return;
+                        }
+                    }
+                    downloadBlobFile(blob, lastPreviewFilename);
+                }, 'image/png');
+            } else {
+                triggerDownload(lastPreviewCanvas, lastPreviewFilename);
+            }
+        }
+
+        function downloadCurrentPreviewImage() {
+            if (!lastPreviewCanvas) return;
+            triggerDownload(lastPreviewCanvas, lastPreviewFilename);
         }
 
         function shareOrDownloadCanvas(canvas, filename, shareTitle, shareMode = false) {
+            lastPreviewCanvas = canvas;
+            lastPreviewFilename = filename;
+            lastPreviewTitle = shareTitle;
+
             if (shareMode && navigator.canShare && canvas.toBlob) {
                 try {
                     canvas.toBlob(async (blob) => {
                         if (!blob) {
-                            triggerDownload(canvas, filename);
+                            openMobileExportPreviewModal(canvas, filename, shareTitle);
                             return;
                         }
                         const file = new File([blob], filename, { type: 'image/png' });
@@ -3347,7 +3504,7 @@ const SYMBOLS_B64 = {
                             try {
                                 await navigator.share({
                                     title: shareTitle,
-                                    text: `${shareTitle} — Generado con CADELEC FAST Web`,
+                                    text: `${shareTitle} — Generado con CADELEC FAST`,
                                     files: [file]
                                 });
                                 return;
@@ -3355,12 +3512,25 @@ const SYMBOLS_B64 = {
                                 if (err && err.name === 'AbortError') return;
                             }
                         }
-                        downloadBlobFile(blob, filename);
+                        if (isMobileOrApkEnv()) {
+                            openMobileExportPreviewModal(canvas, filename, shareTitle);
+                        } else {
+                            downloadBlobFile(blob, filename);
+                        }
                     }, 'image/png');
                     return;
                 } catch (_) {}
             }
+
+            // En APK o pantallas móviles, mostrar siempre también el visor interactivo además de iniciar la descarga
+            if (Boolean(window.Capacitor || /; wv\)/.test(navigator.userAgent || ''))) {
+                openMobileExportPreviewModal(canvas, filename, shareTitle);
+                return;
+            }
             triggerDownload(canvas, filename);
+            if (isMobileOrApkEnv()) {
+                openMobileExportPreviewModal(canvas, filename, shareTitle);
+            }
         }
 
         function exportCSV() {
@@ -4489,72 +4659,309 @@ const SYMBOLS_B64 = {
         }
 
         function exportMaterialsImage(shareMode = false) {
-            const resultsContainer = document.getElementById('materials-results');
-            const scrollBox = resultsContainer.querySelector('div[style*="max-height"]');
-            const prevMaxHeight = scrollBox ? scrollBox.style.maxHeight : '';
-            const prevOverflow = scrollBox ? scrollBox.style.overflowY : '';
-            if (scrollBox) {
-                scrollBox.style.maxHeight = 'none';
-                scrollBox.style.overflowY = 'visible';
+            if (!currentBomCache) {
+                currentBomCache = generateBOM();
             }
-            
-            // Reemplazar visualmente los inputs por span temporales para que se rendericen bien en la imagen
-            const inputs = resultsContainer.querySelectorAll('input');
-            const originalParents = [];
-            
-            inputs.forEach(input => {
-                const span = document.createElement('span');
-                if(input.type === 'checkbox') {
-                    span.innerText = input.checked ? "[X] IVA" : "[ ] IVA";
-                } else {
-                    if(input.type === 'number' && input.value !== "") {
-                        if(input.style.width === '50px') {
-                            span.innerText = parseFloat(input.value).toFixed(0);
-                        } else {
-                            span.innerText = "$" + parseFloat(input.value).toLocaleString('es-CO');
-                        }
-                    } else {
-                        span.innerText = input.value || "Concepto";
-                    }
-                }
-                span.style.padding = "4px";
-                span.style.display = "inline-block";
-                span.style.fontWeight = "bold";
-                span.style.color = "#2c3e50";
-                
-                originalParents.push({ parent: input.parentNode, input: input, span: span });
-                input.parentNode.replaceChild(span, input);
-            });
+            const bom = currentBomCache || {};
+            const rows = [];
+            let subtotalDirecto = 0;
 
-            // Ocultar botones de borrar y añadir temporalmente
-            const allBtns = resultsContainer.querySelectorAll('button');
-            const hiddenBtns = [];
-            allBtns.forEach(btn => {
-                if(btn.style.display !== 'none') {
-                    hiddenBtns.push(btn);
-                    btn.style.display = 'none';
+            Object.keys(bom).forEach(item => {
+                if (bom[item].qty > 0) {
+                    const isMetro = bom[item].type === 'metro';
+                    const qtyNum = isMetro ? bom[item].qty : Math.ceil(bom[item].qty);
+                    const qtyStr = isMetro ? `${bom[item].qty.toFixed(2)} m` : `${Math.ceil(bom[item].qty)} und`;
+                    const price = projectPrices[item] !== undefined ? projectPrices[item] : (bom[item].price || 0);
+                    const sub = qtyNum * price;
+                    subtotalDirecto += sub;
+                    rows.push({
+                        desc: item,
+                        qty: qtyStr,
+                        unit: '$' + Math.round(price).toLocaleString('es-CO'),
+                        sub: '$' + Math.round(sub).toLocaleString('es-CO'),
+                        isCustom: false
+                    });
                 }
             });
 
-            // Capturar
-            html2canvas(resultsContainer, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-                if (scrollBox) {
-                    scrollBox.style.maxHeight = prevMaxHeight;
-                    scrollBox.style.overflowY = prevOverflow;
-                }
-                originalParents.forEach(item => {
-                    item.parent.replaceChild(item.input, item.span);
+            let subtotalAdicionales = 0;
+            customCosts.forEach(cost => {
+                const q = parseFloat(cost.qty) || 0;
+                const p = parseFloat(cost.price) || 0;
+                const sub = q * p;
+                subtotalAdicionales += sub;
+                rows.push({
+                    desc: (cost.desc && cost.desc.trim()) ? cost.desc.trim() : 'Concepto Adicional / Mano de Obra',
+                    qty: `${q} und`,
+                    unit: '$' + Math.round(p).toLocaleString('es-CO'),
+                    sub: '$' + Math.round(sub).toLocaleString('es-CO'),
+                    isCustom: true
                 });
-                hiddenBtns.forEach(btn => {
-                    btn.style.display = '';
-                });
-                
-                const filename = `Cotizacion_${getProjectSlug()}.png`;
-                const shareTitle = `Cotización Eléctrica - ${(projectMeta && projectMeta.name) ? projectMeta.name : 'Cadelec Fast'}`;
-                shareOrDownloadCanvas(canvas, filename, shareTitle, shareMode);
             });
+
+            const subtotalGeneral = subtotalDirecto + subtotalAdicionales;
+            const taxAmount = taxConfig.applyTax ? subtotalGeneral * (taxConfig.rate / 100) : 0;
+            const grandTotal = subtotalGeneral + taxAmount;
+
+            const scale = 2;
+            const logicalW = 860;
+            const headerH = 88;
+            const tableHeadH = 38;
+            const rowH = 34;
+            const summaryH = taxConfig.applyTax ? 128 : 98;
+            const footerH = 44;
+            const pad = 24;
+            const logicalH = headerH + pad + tableHeadH + Math.max(1, rows.length) * rowH + 20 + summaryH + footerH;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = logicalW * scale;
+            canvas.height = logicalH * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(scale, scale);
+
+            // Fondo blanco
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, logicalW, logicalH);
+
+            // Encabezado oscuro
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(0, 0, logicalW, headerH);
+            ctx.fillStyle = '#f1c40f';
+            ctx.fillRect(0, headerH - 4, logicalW, 4);
+
+            const pTitle = (projectMeta && projectMeta.name) ? projectMeta.name : 'Proyecto Eléctrico Residencial';
+            const pAuthor = (projectMeta && projectMeta.author) ? `Electricista / Empresa: ${projectMeta.author}` : 'Presupuesto Preliminar de Materiales e Instalación';
+            const dateStr = new Date().toLocaleDateString('es-CO');
+
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px Segoe UI, Arial';
+            ctx.fillText(`⚡ ${pTitle}`, pad, 30);
+
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = '13px Segoe UI, Arial';
+            ctx.fillText(`${pAuthor}   |   Fecha: ${dateStr}`, pad, 60);
+
+            // Insignia derecha
+            ctx.fillStyle = '#f1c40f';
+            ctx.fillRect(logicalW - pad - 165, 22, 165, 34);
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 13px Segoe UI, Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('CADELEC FAST RETIE', logicalW - pad - 82.5, 39);
+
+            // Encabezado de tabla
+            let curY = headerH + pad;
+            const tableW = logicalW - pad * 2;
+            const colX = [pad, pad + 420, pad + 520, pad + 670, pad + tableW];
+
+            ctx.fillStyle = '#34495e';
+            ctx.fillRect(pad, curY, tableW, tableHeadH);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 13px Segoe UI, Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('Material / Concepto', colX[0] + 12, curY + tableHeadH / 2);
+            ctx.textAlign = 'center';
+            ctx.fillText('Cant.', (colX[1] + colX[2]) / 2, curY + tableHeadH / 2);
+            ctx.textAlign = 'right';
+            ctx.fillText('Valor Unit. (COP)', colX[3] - 12, curY + tableHeadH / 2);
+            ctx.fillText('Subtotal', colX[4] - 12, curY + tableHeadH / 2);
+            curY += tableHeadH;
+
+            if (rows.length === 0) {
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillRect(pad, curY, tableW, rowH);
+                ctx.fillStyle = '#64748b';
+                ctx.font = 'italic 13px Segoe UI, Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Sin materiales registrados en el plano actual', logicalW / 2, curY + rowH / 2);
+                curY += rowH;
+            } else {
+                rows.forEach((r, idx) => {
+                    ctx.fillStyle = r.isCustom ? '#fef9c3' : (idx % 2 === 0 ? '#ffffff' : '#f8fafc');
+                    ctx.fillRect(pad, curY, tableW, rowH);
+                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(pad, curY, tableW, rowH);
+
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = r.isCustom ? 'bold 13px Segoe UI, Arial' : '13px Segoe UI, Arial';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(r.desc.slice(0, 52), colX[0] + 12, curY + rowH / 2);
+
+                    ctx.textAlign = 'center';
+                    ctx.fillText(r.qty, (colX[1] + colX[2]) / 2, curY + rowH / 2);
+
+                    ctx.textAlign = 'right';
+                    ctx.fillText(r.unit, colX[3] - 12, curY + rowH / 2);
+
+                    ctx.font = 'bold 13px Segoe UI, Arial';
+                    ctx.fillStyle = r.isCustom ? '#b45309' : '#0f172a';
+                    ctx.fillText(r.sub, colX[4] - 12, curY + rowH / 2);
+                    curY += rowH;
+                });
+            }
+
+            // Caja de Totales
+            curY += 16;
+            const sumBoxW = 330;
+            const sumBoxX = logicalW - pad - sumBoxW;
+            ctx.fillStyle = '#f1f5f9';
+            ctx.fillRect(sumBoxX, curY, sumBoxW, summaryH - 12);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(sumBoxX, curY, sumBoxW, summaryH - 12);
+
+            let sumY = curY + 22;
+            ctx.font = '14px Segoe UI, Arial';
+            ctx.fillStyle = '#334155';
+            ctx.textAlign = 'left';
+            ctx.fillText('Subtotal Neto:', sumBoxX + 14, sumY);
+            ctx.textAlign = 'right';
+            ctx.font = 'bold 14px Segoe UI, Arial';
+            ctx.fillText('$' + Math.round(subtotalGeneral).toLocaleString('es-CO'), sumBoxX + sumBoxW - 14, sumY);
+
+            if (taxConfig.applyTax) {
+                sumY += 26;
+                ctx.font = '14px Segoe UI, Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(`IVA (${taxConfig.rate}%):`, sumBoxX + 14, sumY);
+                ctx.textAlign = 'right';
+                ctx.font = 'bold 14px Segoe UI, Arial';
+                ctx.fillText('$' + Math.round(taxAmount).toLocaleString('es-CO'), sumBoxX + sumBoxW - 14, sumY);
+            }
+
+            sumY += 16;
+            ctx.beginPath();
+            ctx.moveTo(sumBoxX + 12, sumY);
+            ctx.lineTo(sumBoxX + sumBoxW - 12, sumY);
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            sumY += 22;
+            ctx.font = 'bold 17px Segoe UI, Arial';
+            ctx.fillStyle = '#0f172a';
+            ctx.textAlign = 'left';
+            ctx.fillText('TOTAL:', sumBoxX + 14, sumY);
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#16a34a';
+            ctx.fillText('$' + Math.round(grandTotal).toLocaleString('es-CO'), sumBoxX + sumBoxW - 14, sumY);
+
+            // Nota izquierda
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px Segoe UI, Arial';
+            ctx.fillText('* Incluye margen vertical estimado para subidas/bajadas a cajas.', pad, curY + 22);
+            ctx.fillText('* Cantidades calculadas según diseño en pantalla y calibre RETIE.', pad, curY + 42);
+
+            // Pie de página
+            const footY = logicalH - footerH;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, footY, logicalW, footerH);
+            ctx.fillStyle = '#f1c40f';
+            ctx.font = 'bold 13px Segoe UI, Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('⚡ Presupuesto Generado con CADELEC FAST — Simulador Eléctrico RETIE (100% Offline)', logicalW / 2, footY + footerH / 2);
+
+            const filename = `Cotizacion_${getProjectSlug()}.png`;
+            const shareTitle = `Cotización Eléctrica - ${pTitle}`;
+            shareOrDownloadCanvas(canvas, filename, shareTitle, shareMode);
         }
 
+
+        // --- GESTIÓN DEL BOTÓN "ATRÁS" DE ANDROID (APK / MÓVIL) Y MODO OFFLINE (PWA / CAPACITOR) ---
+        let deferredPwaPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPwaPrompt = e;
+            const btn = document.getElementById('btn-pwa-install-sidebar');
+            if (btn) btn.style.display = 'block';
+        });
+
+        async function promptInstallOfflineApp() {
+            if (deferredPwaPrompt) {
+                deferredPwaPrompt.prompt();
+                try {
+                    await deferredPwaPrompt.userChoice;
+                } catch (_) {}
+                deferredPwaPrompt = null;
+                const btn = document.getElementById('btn-pwa-install-sidebar');
+                if (btn) btn.style.display = 'none';
+            } else {
+                alert("📲 Para usar 100% Offline en tu celular o tablet:\n\n• En Android: Abre el menú del navegador (⋮) y toca 'Instalar aplicación' o instala el archivo APK.\n• En iPhone/iPad: Toca el botón Compartir y elige 'Agregar a inicio'.");
+            }
+        }
+
+        function openExternalPromoLink() {
+            const url = 'https://github.com/caramireg/cadelecfast_v1.0/releases/tag/v2.0.0';
+            if (navigator.onLine === false) {
+                alert("📴 Estás trabajando en Modo 100% Offline.\n\nCuando tengas conexión a internet, visita en tu PC o navegador:\n" + url);
+                return;
+            }
+            window.open(url, '_blank');
+        }
+
+        function pushMobileHistoryGuard() {
+            try {
+                if (!history.state || !history.state.cadelecGuard) {
+                    history.pushState({ cadelecGuard: true }, '');
+                }
+            } catch (_) {}
+        }
+
+        function closeAnyOpenModalOrDrawer() {
+            const modalIds = [
+                'mobile-export-preview-modal',
+                'sample-plans-modal',
+                'materials-modal',
+                'balance-modal',
+                'help-modal',
+                'reload-confirm-modal'
+            ];
+            for (const id of modalIds) {
+                const el = document.getElementById(id);
+                if (el && el.style.display === 'flex') {
+                    el.style.display = 'none';
+                    return true;
+                }
+            }
+            const leftOpen = sidebarLeft && sidebarLeft.classList.contains('mobile-open');
+            const rightOpen = sidebarRight && sidebarRight.classList.contains('mobile-open');
+            if (leftOpen || rightOpen) {
+                closeMobileDrawers();
+                return true;
+            }
+            if (mode !== 'select') {
+                wireStartNodeId = null;
+                tempWirePoints = [];
+                setMode('select');
+                renderWorkspace();
+                return true;
+            }
+            return false;
+        }
+
+        window.addEventListener('popstate', () => {
+            if (closeAnyOpenModalOrDrawer()) {
+                pushMobileHistoryGuard();
+                return;
+            }
+            if (hasUnsavedChanges && (nodes.length > 0 || bgImageBase64)) {
+                const reloadModal = document.getElementById('reload-confirm-modal');
+                if (reloadModal) reloadModal.style.display = 'flex';
+                pushMobileHistoryGuard();
+            }
+        });
+
+        // Registrar Service Worker para funcionamiento 100% Offline (Modo Avión)
+        if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            });
+        }
 
         // --- SOPORTE DE TECLADO (Supr, Undo/Redo Ctrl+Z / Ctrl+Y, y Confirmación de Recarga F5 / Ctrl+R) ---
         document.addEventListener('keydown', (e) => {
@@ -4605,6 +5012,7 @@ const SYMBOLS_B64 = {
             lastWorkspaceSize = { w: r.width, h: r.height };
             analyzeSystem();
             checkAutoSaveOnStartup();
+            pushMobileHistoryGuard();
         });
 
     </script>
