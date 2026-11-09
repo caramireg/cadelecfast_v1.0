@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cadelec-fast-offline-v2.1';
+const CACHE_NAME = 'cadelec-fast-offline-v2.2';
 
 const OFFLINE_ASSETS = [
   './',
